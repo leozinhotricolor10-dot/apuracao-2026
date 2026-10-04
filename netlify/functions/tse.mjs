@@ -10,7 +10,7 @@ const ALLOWED = [
   /^oficial\/ele2026\/\d{3,5}\/fotos\/[a-z]{2}\/\d+\.jpe?g$/,                // fotos dos candidatos
   /^oficial\/comum\/config\/[a-z0-9-]+\.json$/,                               // lista de eleições
 ];
-const TTL_DATA = 15, TTL_PHOTO = 86400;
+const TTL_DATA = 30, TTL_PHOTO = 86400;   // o TSE atualiza cada estado a cada ~15 min; 30 s mantém o site em dia e poupa execuções
 
 export default async (req) => {
   const url = new URL(req.url);

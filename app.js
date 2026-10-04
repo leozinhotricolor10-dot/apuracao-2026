@@ -238,6 +238,11 @@ async function loadStates(force) {
   paintStates();
   updateProjection();
   if (state.focus) renderCandView();
+  // se os estados já estão mais novos que o arquivo nacional, refaz o placar com a soma
+  if (cargo === 1 && state.uf === "br" && last && !last.synthetic) {
+    const agg = nationalFromStates(mapData, zzData);
+    if (agg && stamp(agg) > stamp(last)) load();
+  }
 }
 
 function stateInfo(uf) {
@@ -424,6 +429,19 @@ function zoomToRegion(key) {
 function aggregateRegion(cargo, key) {
   const ds = regionUfs(key).map(uf => mapCargo === cargo && mapData[uf]).filter(Boolean);
   if (ds.length < regionUfs(key).length) return null;
+  return aggregateDs(cargo, ds, key);
+}
+/* soma do Brasil a partir dos estados (+ exterior), usada quando o arquivo nacional do TSE atrasa */
+const stamp = d => d ? `${String(d.dg).split("/").reverse().join("")} ${d.hg}` : "";
+function nationalFromStates(ufData, zz) {
+  const ds = UFS.map(([uf]) => ufData[uf]).filter(Boolean);
+  if (ds.length < 27) return null;
+  if (zz) ds.push(zz);
+  const d = aggregateDs(1, ds, "br");
+  d.region = null; d.cdabr = "br"; d.synthetic = true;
+  return d;
+}
+function aggregateDs(cargo, ds, key) {
   const sum = (f) => ds.reduce((s, d) => s + (+f(d) || 0), 0);
   const s = { ts: sum(d => d.s.ts), st: sum(d => d.s.st) };
   s.pstn = String(s.ts ? s.st / s.ts * 100 : 0); s.pst = pct(+s.pstn).replace("%", "");
@@ -461,7 +479,12 @@ async function load() {
     if (state.cargo === 1) {
       if (state.uf !== "br") { try { natList = candidatos(await getJSON(fileFor(1, "br"))); natList.forEach(colorVar); } catch {} }
     }
-    const d = isRegion(state.uf) ? await regionData() : await getJSON(fileFor(state.cargo, state.uf));
+    let d = isRegion(state.uf) ? await regionData() : await getJSON(fileFor(state.cargo, state.uf));
+    let lagNote = "";
+    if (state.cargo === 1 && state.uf === "br" && mapCargo === 1) {
+      const agg = nationalFromStates(mapData, zzData);
+      if (agg && stamp(agg) > stamp(d)) { lagNote = `O arquivo nacional do TSE está parado desde as ${d.hg.slice(0, 5)}. Mostrando o total do Brasil somado a partir dos 27 estados e do exterior, que estão mais atualizados.`; d = agg; }
+    }
     const list = candidatos(d);
     list.forEach(colorVar);
     if (state.cargo === 1 && state.uf === "br") natList = list;
@@ -473,7 +496,9 @@ async function load() {
     feedFromMain(prevD, d, list);
     updateProjection();
     if (state.focus) renderCandView();
-    $("err").style.display = "none";
+    $("err").style.display = lagNote ? "block" : "none";
+    $("err").classList.toggle("info", !!lagNote);
+    if (lagNote) $("err").textContent = lagNote;
     const fin = d.tf === "s";
     $("live").classList.toggle("off", fin);
     $("liveTxt").textContent = fin ? "FINAL" : "AO VIVO";

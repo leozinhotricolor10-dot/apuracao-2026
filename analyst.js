@@ -23,7 +23,10 @@ async function loadAnalyst(force) {
       if (mapCargo === 1 && mapData[uf]) an.ufs[uf] = mapData[uf];
       else jobs.push(getJSON(fileFor(1, uf)).then(d => an.ufs[uf] = d).catch(() => {}));
     }
+    jobs.push(getJSON(fileFor(1, "zz")).then(d => an.zz = d).catch(() => {}));
     await Promise.all(jobs);
+    const agg = nationalFromStates(an.ufs, an.zz);
+    if (agg && stamp(agg) > stamp(an.br)) an.br = agg;
   } catch {}
   an.loading = false;
   if (typeof loadParties === "function") loadParties().catch?.(() => {});

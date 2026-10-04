@@ -495,3 +495,5 @@ body.focus main > :not(#candView), body.focus .hero{display:none}
   .donut{grid-template-columns:120px 1fr} .donut svg{width:120px;height:120px}
 }
 #stTable,#listView{overflow-x:auto}
+
+.err.info{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}

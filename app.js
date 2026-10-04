@@ -1,5 +1,7 @@
 /* Central das Eleições 2026 — dados oficiais do TSE, sem dependências. */
-const BASE = "https://resultados.tse.jus.br/oficial/ele2026";
+// Na Netlify os dados passam pelo intermediário com cache (/api/tse); em outros lugares, direto do TSE.
+const USE_PROXY = !/^(localhost|127\.0\.0\.1|\[::1\])$|github\.io$/.test(location.hostname) && location.protocol === "https:";
+const BASE = USE_PROXY ? "/api/tse/oficial/ele2026" : "https://resultados.tse.jus.br/oficial/ele2026";
 const ELE = { 1: "6257", 3: "6259", 5: "6259" };
 const CARGO = { 1: "Presidente", 3: "Governador", 5: "Senador" };
 const REFRESH = 30, MAP_REFRESH = 60;
@@ -46,8 +48,9 @@ let mapData = {}, mapStamp = 0, mapCargo = null;
 
 /* ================= dados ================= */
 async function getJSON(path) {
-  const bucket = Math.floor(Date.now() / 10000);
-  const r = await fetch(`${BASE}/${path}?t=${bucket}`);
+  // com o intermediário, o navegador confere com o CDN e recebe 304 (sem baixar nada) quando o arquivo não mudou
+  const r = USE_PROXY ? await fetch(`${BASE}/${path}`, { cache: "no-cache" })
+                      : await fetch(`${BASE}/${path}?t=${Math.floor(Date.now() / 10000)}`);
   if (!r.ok) throw new Error(r.status === 404 ? "O TSE ainda não publicou dados para esta seleção." : `O TSE respondeu ${r.status}.`);
   return r.json();
 }

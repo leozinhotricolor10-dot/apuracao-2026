@@ -1,0 +1,13 @@
+# Site estático (sem build) + função intermediária para os dados do TSE
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# arquivos do site: o navegador sempre confere se há versão nova
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

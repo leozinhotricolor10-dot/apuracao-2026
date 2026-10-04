@@ -209,6 +209,7 @@ function renderAnalyst() {
   try { camaraInsights(out); } catch (e) { console.warn(e); }
   try { govInsights(out); } catch (e) { console.warn(e); }
   try { senInsights(out); } catch (e) { console.warn(e); }
+  try { if (typeof depInsights === "function") depInsights(out); } catch (e) { console.warn(e); }
   out.sort((p, q) => q.score - p.score);
   an.out = out;
   const shown = an.filter === "all" ? out : out.filter(x => x.cat === an.filter);

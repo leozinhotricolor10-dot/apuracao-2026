@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=9">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 
@@ -28,6 +28,7 @@
       <button data-go="mapa">Mapa</button>
       <button data-go="resultado">Resultados</button>
       <button data-go="feed">Atualizações</button>
+      <button data-go="analista">Analista</button>
       <button data-go="regioes">Regiões</button>
       <button data-go="partidos">Partidos</button>
       <button data-go="estados">Estados</button>
@@ -164,6 +165,17 @@
     </div>
   </section>
 
+  <!-- Meu analista -->
+  <section class="card panel analyst" id="analista">
+    <div class="an-head">
+      <div class="an-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14l-4-3H6a2 2 0 0 1-2-2"/><path d="M8 8h8M8 12h5"/></svg></div>
+      <div><h2>Meu analista</h2><p class="an-meta" id="anMeta">Lendo os números…</p></div>
+      <span class="an-note">Comentários automáticos baseados nos números do TSE e em 2022</span>
+    </div>
+    <div class="an-chips" id="anChips"></div>
+    <div id="anList"><div class="skel" style="height:120px"></div></div>
+  </section>
+
   <!-- Regiões -->
   <section class="card panel regions-sec" id="regioes">
     <div class="ph"><h2 id="regTitle">Visão por região</h2><span class="pt-sub">Toque numa região para ver o site só com ela</span></div>
@@ -212,11 +224,12 @@
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
 
-<script src="br-map.js?v=9"></script>
-<script src="projection.js?v=9"></script>
-<script src="app.js?v=9"></script>
-<script src="parties.js?v=9"></script>
-<script src="candidate.js?v=9"></script>
-<script src="region.js?v=9"></script>
+<script src="br-map.js?v=11"></script>
+<script src="projection.js?v=11"></script>
+<script src="app.js?v=11"></script>
+<script src="parties.js?v=11"></script>
+<script src="candidate.js?v=11"></script>
+<script src="region.js?v=11"></script>
+<script src="analyst.js?v=11"></script>
 </body>
 </html>

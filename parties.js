@@ -103,6 +103,7 @@ function renderParties() {
   $("ptStatus").textContent = A.ufsCam
     ? `Câmara: distribuição atual de cadeiras calculada pelo TSE com ${pct(A.pst, 1)} das urnas apuradas (média dos estados). Muda até o fim da apuração. Governos e Senado: quem está à frente agora; ✓ = eleito.`
     : "Carregando dados dos partidos…";
+  if (typeof renderAnalyst === "function") renderAnalyst();
 }
 
 /* carrega só quando a seção aparece na tela */

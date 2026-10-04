@@ -430,6 +430,31 @@ body.focus main > :not(#candView), body.focus .hero{display:none}
 @media (max-width:1100px){ .rcards{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:640px){ .rcards{grid-template-columns:repeat(2,minmax(0,1fr))} .rcard svg{height:90px} }
 
+/* ================= meu analista ================= */
+.analyst{margin-top:14px}
+.an-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.an-head h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.an-av{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff}
+.an-av svg{width:24px;height:24px}
+.an-meta{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.an-note{margin-left:auto;font-size:12px;color:var(--faint)}
+.an-chips{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.an-chips button{border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;padding:7px 12px;border-radius:99px;cursor:pointer;color:var(--muted)}
+.an-chips button b{font-size:11px;background:var(--surface-2);padding:1px 7px;border-radius:99px;margin-left:2px}
+.an-chips button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.an-chips button[aria-pressed="true"] b{background:rgba(127,127,127,.3)}
+.an-card{background:var(--surface-2);border-radius:14px;padding:16px 18px;border-left:4px solid var(--ac)}
+.an-card h3{margin:6px 0 6px;font-size:16px;line-height:1.3;letter-spacing:-.01em}
+.an-card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5}
+.an-card.lead{padding:20px 22px;margin-bottom:12px;background:linear-gradient(110deg,color-mix(in srgb,var(--ac) 12%,var(--surface-2)),var(--surface-2) 60%)}
+.an-card.lead h3{font-size:clamp(20px,2.4vw,26px);font-weight:800;letter-spacing:-.02em}
+.an-card.lead p{font-size:15px;color:var(--text);opacity:.85}
+.an-tag{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ac)}
+.an-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.an-empty{color:var(--muted);font-size:14px}
+@media (max-width:1100px){ .an-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:640px){ .an-grid{grid-template-columns:minmax(0,1fr)} .an-note{margin-left:0} }
+
 /* ================= responsive ================= */
 @media (max-width:1280px){
   .nav{display:none}

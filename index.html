@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
 
@@ -224,12 +224,21 @@
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
 
-<script src="br-map.js?v=12"></script>
-<script src="projection.js?v=12"></script>
-<script src="app.js?v=12"></script>
-<script src="parties.js?v=12"></script>
-<script src="candidate.js?v=12"></script>
-<script src="region.js?v=12"></script>
-<script src="analyst.js?v=12"></script>
+<!-- faixa de notícias (rodapé) -->
+<div class="ticker" id="ticker" role="region" aria-label="Últimas notícias da apuração">
+  <div class="tk-live"><i></i>AO VIVO</div>
+  <div class="tk-view"><div class="tk-track" id="tkTrack"></div></div>
+  <button class="tk-close" id="tkClose" aria-label="Fechar faixa de notícias">×</button>
+</div>
+<button class="tk-open" id="tkOpen" hidden>Notícias ao vivo</button>
+
+<script src="br-map.js?v=13"></script>
+<script src="projection.js?v=13"></script>
+<script src="app.js?v=13"></script>
+<script src="parties.js?v=13"></script>
+<script src="candidate.js?v=13"></script>
+<script src="region.js?v=13"></script>
+<script src="analyst.js?v=13"></script>
+<script src="ticker.js?v=15"></script>
 </body>
 </html>

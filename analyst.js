@@ -214,6 +214,7 @@ function renderAnalyst() {
   out.sort((p, q) => q.score - p.score);
   an.out = out;
   if (typeof renderRunoff === "function") renderRunoff();
+  if (typeof renderSummary === "function") renderSummary();
   const shown = an.filter === "all" ? out : out.filter(x => x.cat === an.filter);
   $("anMeta").textContent = an.br ? `Com os números do TSE das ${an.br.hg.slice(0, 5)} · ${p1(num(an.br.s.pstn))} das urnas apuradas para Presidente` : "Lendo os números…";
   $("anChips").innerHTML = Object.entries(CATS).map(([k, t]) => `<button data-k="${k}" aria-pressed="${an.filter === k}">${t}${k !== "all" ? ` <b>${out.filter(x => x.cat === k).length}</b>` : ""}</button>`).join("");
@@ -226,4 +227,4 @@ function renderAnalyst() {
 $("anChips").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { an.filter = b.dataset.k; renderAnalyst(); } });
 new IntersectionObserver(es => { an.visible = es[0].isIntersecting; if (an.visible) loadAnalyst(); }, { rootMargin: "300px" }).observe($("analista"));
 setInterval(() => { if (an.visible && state.auto && !document.hidden) loadAnalyst(); }, 15000);
-setTimeout(() => loadAnalyst(), 4000);
+setTimeout(() => loadAnalyst(), 1200);   // cedo: alimenta também o resumo do topo

@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
 
@@ -60,6 +60,15 @@
     <button class="iconbtn" id="theme" title="Tema claro/escuro" aria-label="Alternar tema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/></svg></button>
   </div>
 </header>
+
+<section class="summary" id="resumo" aria-label="Resumo do 1º turno">
+  <div class="wrap">
+    <div class="sm-top"><span class="sm-title">Resumo do 1º turno</span><span class="sm-date">Eleições 2026 · 4 de outubro</span><span class="sm-status" id="smStatus">carregando…</span></div>
+    <div class="sm-tiles" id="smTiles">
+      <div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div>
+    </div>
+  </div>
+</section>
 
 <section class="hero" id="top">
   <svg class="art" viewBox="0 0 1440 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -271,15 +280,16 @@
 </div>
 <button class="tk-open" id="tkOpen" hidden>Notícias ao vivo</button>
 
-<script src="br-map.js?v=23"></script>
-<script src="projection.js?v=23"></script>
-<script src="app.js?v=23"></script>
-<script src="parties.js?v=23"></script>
-<script src="candidate.js?v=23"></script>
-<script src="region.js?v=23"></script>
-<script src="analyst.js?v=23"></script>
-<script src="deputies.js?v=23"></script>
-<script src="runoff.js?v=23"></script>
-<script src="ticker.js?v=23"></script>
+<script src="br-map.js?v=26"></script>
+<script src="projection.js?v=26"></script>
+<script src="app.js?v=26"></script>
+<script src="parties.js?v=26"></script>
+<script src="candidate.js?v=26"></script>
+<script src="region.js?v=26"></script>
+<script src="analyst.js?v=26"></script>
+<script src="deputies.js?v=26"></script>
+<script src="runoff.js?v=26"></script>
+<script src="summary.js?v=26"></script>
+<script src="ticker.js?v=26"></script>
 </body>
 </html>

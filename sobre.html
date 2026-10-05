@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sobre e metodologia · Central das Eleições 2026</title>
+<meta name="description" content="De onde vêm os dados, como funcionam a projeção, o 'Já ganhou', os deputados e as comparações com 2022.">
+<meta property="og:title" content="Sobre e metodologia · Central das Eleições 2026">
+<meta property="og:description" content="De onde vêm os dados e como cada número do site é calculado.">
+<meta property="og:image" content="https://apuracao2026br1.netlify.app/og.png">
+<meta property="og:type" content="article">
+<meta name="theme-color" content="#07152e">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f6;--surface:#fff;--line:#e3e7ee;--text:#0d1424;--muted:#5a6377;--accent:#0b6bff;--navy:#07152e;--ok:#12a150}
+@media (prefers-color-scheme:dark){:root{--bg:#070a12;--surface:#10141f;--line:#222838;--text:#f1f4fa;--muted:#a3abbd;--accent:#4c8dff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:var(--navy);color:#fff}
+header .w{display:flex;align-items:center;gap:12px;height:62px}
+header a{color:#fff;text-decoration:none;font-weight:800;font-size:18px;display:flex;align-items:center;gap:10px}
+header a span{color:#4fa3ff}
+header img{width:32px;height:32px}
+.back{margin-left:auto;font-weight:600 !important;font-size:14px !important;background:rgba(255,255,255,.1);padding:8px 14px;border-radius:10px}
+.w{max-width:820px;margin:0 auto;padding:0 18px}
+h1{font-size:clamp(30px,5vw,42px);letter-spacing:-.03em;line-height:1.1;margin:36px 0 8px}
+.lead{font-size:18px;color:var(--muted);margin:0 0 28px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin:0 0 16px}
+h2{font-size:20px;letter-spacing:-.02em;margin:0 0 8px}
+h3{font-size:16px;margin:18px 0 4px}
+p,li{color:var(--muted)} p b,li b{color:var(--text)}
+ul{padding-left:20px;margin:8px 0}
+a{color:var(--accent)}
+.note{border-left:4px solid var(--ok);padding:10px 14px;background:rgba(18,161,80,.08);border-radius:0 10px 10px 0;color:var(--text)}
+footer{color:var(--muted);font-size:13px;text-align:center;padding:24px 0 48px}
+</style>
+</head>
+<body>
+<header><div class="w"><a href="./"><img src="icon-192.png" alt=""> Apuração<span>2026</span></a><a class="back" href="./">← Voltar à apuração</a></div></header>
+<main class="w">
+  <h1>Sobre e metodologia</h1>
+  <p class="lead">Um site independente que acompanha a apuração das Eleições 2026 em tempo real, com dados oficiais do TSE. Aqui explicamos de onde vem cada número e como ele é calculado.</p>
+
+  <section>
+    <h2>Independência</h2>
+    <p>O site <b>não tem vínculo com o TSE, com partidos, candidatos ou campanhas</b>. Todos os números vêm de dados públicos. Os comentários do "Meu analista" são gerados automaticamente por regras fixas a partir desses números; nenhum texto é escrito à mão sobre candidatos.</p>
+    <ul>
+      <li>Cada partido tem <b>uma cor fixa</b> em todo o site, a mesma em qualquer cargo e tela.</li>
+      <li>Nos gráficos de cadeiras, os partidos aparecem <b>ordenados pelo tamanho da bancada</b>, e não por posição política.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>De onde vêm os dados</h2>
+    <ul>
+      <li><b>Apuração ao vivo:</b> arquivos públicos da <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">Divulgação de Resultados do TSE</a> (Presidente, Governador, Senador, Deputados Federal, Estadual e Distrital), incluindo as fotos dos candidatos.</li>
+      <li><b>Comparações com 2022:</b> arquivos do <a href="https://dadosabertos.tse.jus.br" target="_blank" rel="noopener">Portal de Dados Abertos do TSE</a>: votação por partido, eleitos e comparecimento do 1º turno de 2022.</li>
+      <li><b>Mapa dos estados:</b> malha territorial oficial do <a href="https://servicodados.ibge.gov.br/api/docs/malhas" target="_blank" rel="noopener">IBGE</a>.</li>
+    </ul>
+    <h3>Atualização</h3>
+    <p>O site consulta os dados a cada 30 segundos, por meio de um intermediário com cache que evita sobrecarregar os servidores do TSE. O TSE atualiza cada estado em intervalos próprios (em geral a cada 10–20 minutos).</p>
+    <h3>Total do Brasil</h3>
+    <p>Quando o arquivo nacional do TSE fica para trás em relação aos arquivos dos estados, o site soma os 27 estados e o exterior para mostrar o total mais recente, e avisa na tela quando isso acontece. A soma é conferida com o total de seções e de eleitores do TSE.</p>
+  </section>
+
+  <section>
+    <h2>"Já ganhou"</h2>
+    <p class="note">Só aparece quando o resultado é <b>garantido matematicamente</b> ou quando o <b>TSE oficializa</b>.</p>
+    <p>Garantido matematicamente significa: mesmo que <b>todos os eleitores das seções ainda não apuradas</b> votassem contra o líder, o resultado não mudaria. Para Presidente e Governador, considera-se a maioria absoluta dos votos válidos (mais de 50%) para vencer no 1º turno. Para o Senado, as vagas em disputa no estado.</p>
+  </section>
+
+  <section>
+    <h2>Projeção</h2>
+    <p>A projeção é uma <b>estimativa estatística do site, não é resultado oficial</b>. Ela é feita sobre a apuração oficial, depois do fechamento das urnas, e não usa pesquisas.</p>
+    <ul>
+      <li>Simulamos milhares de cenários para os votos que faltam. Em cada estado, os votos restantes seguem o padrão já apurado ali, com uma margem de incerteza que diminui à medida que a apuração avança, mais um desvio comum a todos os estados.</li>
+      <li>A <b>chance</b> é a proporção de cenários em que o resultado acontece. A <b>faixa</b> mostrada cobre 90% dos cenários.</li>
+      <li>Rótulos: "Praticamente certo" (99% ou mais), "Muito provável" (90%+), "Provável" (70%+), "Indefinido" (abaixo disso).</li>
+      <li>Limitação conhecida: dentro de um mesmo estado, se uma região (por exemplo, a capital) for apurada antes das outras, a estimativa daquele estado pode pender para um lado no começo da noite.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Deputados</h2>
+    <p>O número de vagas de cada partido ou federação é a <b>distribuição oficial calculada pelo TSE</b> com a apuração do momento (quociente eleitoral e sobras). Dentro de cada lista, entram os mais votados que tenham pelo menos 10% do quociente eleitoral, como manda a lei. Quando o TSE oficializa o resultado, o site passa a mostrar a situação oficial de cada candidato ("Eleito por QP", "Eleito por média", "Suplente"). Testamos a regra com o resultado oficial do Distrito Federal e ela coincidiu em 100%.</p>
+  </section>
+
+  <section>
+    <h2>Comparações com 2022</h2>
+    <ul>
+      <li>As comparações são <b>por partido</b>: o candidato de 2026 é comparado com o desempenho do seu partido no 1º turno de 2022, no mesmo cargo e lugar.</li>
+      <li>Partidos que se fundiram somam os antecessores: <b>PRD</b> = PTB + Patriota; <b>Solidariedade</b> inclui o PROS; <b>Podemos</b> inclui o PSC.</li>
+      <li>As bancadas são comparadas com os <b>eleitos em 2022</b>, não com o tamanho atual dos partidos (que mudou com trocas de partido).</li>
+      <li>Por região, as comparações usam só estados com mais de 10% das urnas apuradas e ponderam pelo eleitorado de cada estado.</li>
+      <li>Em 2022 o Senado tinha 1 vaga por estado; em 2026 são 2.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Resultado oficial</h2>
+    <p>O resultado oficial das eleições é sempre o divulgado pelo <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">Tribunal Superior Eleitoral</a>. Este site é uma forma de visualizar e analisar esses dados e pode conter atrasos ou erros; em caso de divergência, vale o TSE.</p>
+  </section>
+</main>
+<footer>Central das Eleições 2026 · Site independente · Dados: TSE e IBGE</footer>
+</body>
+</html>

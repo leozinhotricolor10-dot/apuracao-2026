@@ -8,12 +8,26 @@
 <meta property="og:title" content="Central das Eleições 2026 · Apuração ao vivo">
 <meta property="og:description" content="Acompanhe a apuração em tempo real em todo o Brasil. Dados oficiais do TSE.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://apuracao2026br1.netlify.app/">
+<meta property="og:image" content="https://apuracao2026br1.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Central das Eleições 2026: apuração em tempo real em todo o Brasil">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Central das Eleições 2026">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://apuracao2026br1.netlify.app/og.png">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Apuração 2026">
 <meta name="theme-color" content="#07152e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
 
@@ -33,6 +47,7 @@
       <button data-go="partidos">Partidos</button>
       <button data-go="deputados">Deputados</button>
       <button data-go="estados">Estados</button>
+      <a class="navlink" href="sobre.html">Sobre</a>
     </nav>
     <form class="search" id="search" role="search" autocomplete="off">
       <input id="q" list="qlist" placeholder="Buscar estado ou candidato…" aria-label="Buscar estado ou candidato">
@@ -236,7 +251,7 @@
 </main>
 
 <footer class="wrap">
-  Fonte: dados oficiais do <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE · Divulgação de Resultados</a> · Malha dos estados: IBGE.<br>Site independente, sem vínculo com o TSE.
+  Fonte: dados oficiais do <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE · Divulgação de Resultados</a> · Malha dos estados: IBGE.<br>Site independente, sem vínculo com o TSE. <a href="sobre.html">Sobre e metodologia</a>
 </footer>
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
@@ -249,14 +264,14 @@
 </div>
 <button class="tk-open" id="tkOpen" hidden>Notícias ao vivo</button>
 
-<script src="br-map.js?v=19"></script>
-<script src="projection.js?v=19"></script>
-<script src="app.js?v=19"></script>
-<script src="parties.js?v=19"></script>
-<script src="candidate.js?v=19"></script>
-<script src="region.js?v=19"></script>
-<script src="analyst.js?v=19"></script>
-<script src="deputies.js?v=20"></script>
-<script src="ticker.js?v=19"></script>
+<script src="br-map.js?v=21"></script>
+<script src="projection.js?v=21"></script>
+<script src="app.js?v=21"></script>
+<script src="parties.js?v=21"></script>
+<script src="candidate.js?v=21"></script>
+<script src="region.js?v=21"></script>
+<script src="analyst.js?v=21"></script>
+<script src="deputies.js?v=21"></script>
+<script src="ticker.js?v=21"></script>
 </body>
 </html>

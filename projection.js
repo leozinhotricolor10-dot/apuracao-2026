@@ -226,12 +226,12 @@ function paintProjection() {
   for (const [uf] of UFS) {
     const path = document.querySelector(`#map path[data-uf="${uf}"]`), P = ufProj[uf];
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
-    if (!P) { path.style.fill = "var(--land)"; if (lp) lp.textContent = ""; if (cp) cp.textContent = ""; if (lb) lb.classList.add("dark"); continue; }
+    if (!P) { setFill(path, "var(--land)"); if (lp) lp.textContent = ""; if (cp) cp.textContent = ""; if (lb) lb.classList.add("dark"); continue; }
     const v = colorVar(P.lead.c), lvl = P.guaranteed ? "done" : tier(P.p)[1];
     counts[lvl]++;
     leaders[P.lead.c.partido] = leaders[P.lead.c.partido] || { nome: state.cargo === 1 ? title(P.lead.c.nmu) : P.lead.c.partido, col: colorFor(P.lead.c), n: 0 };
     leaders[P.lead.c.partido].n++;
-    path.style.fill = lvl === "toss" ? `url(#t${v})` : `color-mix(in srgb, var(${v}) ${{ done: 100, certain: 88, likely: 68, lean: 48 }[lvl]}%, var(--land))`;
+    if (lvl === "toss") setFill(path, `url(#t${v})`); else setFill(path, `var(${v})`, { done: 100, certain: 88, likely: 68, lean: 48 }[lvl]);
     const txt = (P.guaranteed ? "✓ " : "") + (lvl === "toss" ? "?" : Math.round(P.lead.mean) + "%");
     if (lp) lp.textContent = txt;
     if (cp) cp.textContent = txt;
@@ -240,8 +240,8 @@ function paintProjection() {
   $("legTitle").textContent = "Projeção por estado";
   $("legend").innerHTML = Object.values(leaders).sort((a, b) => b.n - a.n).map(x => `<span><i style="background:${x.col}"></i>${esc(x.nome)}<em>${x.n}</em></span>`).join("") +
     `<span><i style="background:var(--text)"></i>✓ Já ganhou<em>${counts.done}</em></span>` +
-    `<span><i style="background:color-mix(in srgb,var(--text) 55%,var(--land))"></i>Muito provável<em>${counts.certain + counts.likely}</em></span>` +
-    `<span><i style="background:color-mix(in srgb,var(--text) 25%,var(--land))"></i>Provável<em>${counts.lean}</em></span>` +
+    `<span><i style="background:${mix("var(--text)", 55)}"></i>Muito provável<em>${counts.certain + counts.likely}</em></span>` +
+    `<span><i style="background:${mix("var(--text)", 25)}"></i>Provável<em>${counts.lean}</em></span>` +
     `<span><i class="tight"></i>Indefinido<em>${counts.toss}</em></span>`;
 }
 
@@ -283,12 +283,12 @@ function paintDecided() {
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
     path.classList.toggle("dim", !x);
     if (!x) {
-      path.style.fill = "var(--land)";
+      setFill(path, "var(--land)");
       if (lp) lp.textContent = ""; if (cp) cp.textContent = ""; if (lb) lb.classList.add("dark");
       continue;
     }
     const w = x.winners[0];
-    path.style.fill = colorFor(w);
+    setFill(path, colorFor(w));
     if (lp) lp.textContent = "✓ " + Math.round(num(w.pvapn)) + "%";
     if (cp) cp.textContent = "✓";
     if (lb) lb.classList.remove("dark");

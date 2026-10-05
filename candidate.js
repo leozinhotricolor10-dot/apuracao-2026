@@ -121,7 +121,7 @@ function renderCandView() {
       <h2 class="cv-h">Desempenho por estado</h2>
       <p class="cv-hint">Quanto mais forte a cor, maior o percentual de ${esc(name)} no estado.</p>
       <div class="mapbox"><svg id="cmap" role="img" aria-label="Mapa do desempenho do candidato por estado"></svg></div>
-      <div class="cv-scale"><span class="num" id="cvMin"></span><i style="background:linear-gradient(90deg,color-mix(in srgb,${col} 15%,var(--land)),${col})"></i><span class="num" id="cvMax"></span></div>
+      <div class="cv-scale"><span class="num" id="cvMin"></span><i style="background:linear-gradient(90deg,${mix(col, 15)},${col})"></i><span class="num" id="cvMax"></span></div>
     </div>` : ""}
     <div class="cv-col">
       ${isPres ? `<div class="card panel"><h2 class="cv-h">Onde vai melhor e pior</h2><div class="cv-bw" id="cvBest"></div></div>` : ""}
@@ -157,7 +157,7 @@ function renderCandStates(c, col, ufs) {
   for (const [uf] of UFS) {
     const path = document.querySelector(`#cmap path[data-uf="${uf}"]`), x = byUf[uf];
     const k = x && max > min ? (x.p - min) / (max - min) : x ? 1 : 0;
-    path.style.fill = x ? `color-mix(in srgb, ${col} ${(15 + k * 85).toFixed(0)}%, var(--land))` : "var(--land)";
+    setFill(path, x ? col : "var(--land)", x ? 15 + k * 85 : 100);
     const txt = x ? Math.round(x.p) + "%" : "";
     const lp = $("clp-" + uf), cp = $("ccp-" + uf), lb = $("clb-" + uf);
     if (lp) lp.textContent = txt;

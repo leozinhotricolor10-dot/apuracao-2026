@@ -74,7 +74,14 @@ function colorVar(c) {
   }
   return colorOf[k];
 }
-const stripe = v => `<pattern id="t${v}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="color-mix(in srgb, var(${v}) 35%, var(--land))"/><rect width="4" height="9" fill="var(${v})"/></pattern>`;
+/* compatibilidade: navegadores sem color-mix (ex.: iPhone com iOS < 16.2) usam opacidade */
+const CM = !!(window.CSS && CSS.supports && CSS.supports("color", "color-mix(in srgb, red 50%, blue)"));
+const mix = (color, p) => CM ? `color-mix(in srgb, ${color} ${p}%, var(--land))` : color;
+function setFill(el, fill, p = 100) {
+  if (p >= 100 || CM) { el.style.fill = p >= 100 ? fill : `color-mix(in srgb, ${fill} ${Math.round(p)}%, var(--land))`; el.style.fillOpacity = ""; }
+  else { el.style.fill = fill; el.style.fillOpacity = (0.2 + 0.8 * p / 100).toFixed(2); }
+}
+const stripe = v => `<pattern id="t${v}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" ${CM ? `fill="color-mix(in srgb, var(${v}) 35%, var(--land))"` : `fill="var(${v})" fill-opacity=".35"`}/><rect width="4" height="9" fill="var(${v})"/></pattern>`;
 const colorFor = c => `var(${colorVar(c)})`;
 const place = () => state.uf === "br" ? "Brasil" : REGKEY[state.uf] || UFNAME[state.uf];
 
@@ -262,18 +269,18 @@ function paintStates() {
   for (const [uf] of UFS) {
     const path = document.querySelector(`#map path[data-uf="${uf}"]`);
     const s = stateInfo(uf);
-    let fill = "var(--land)", txt = "";
+    let fill = "var(--land)", fillP = 100, txt = "";
     const inScope = !isRegion(state.uf) || regionUfs(state.uf).includes(uf);
     if (s && s.has && inScope) {
       const v = colorVar(s.top);
       if (s.margin < TIGHT && s.second) { fill = `url(#t${v})`; tight++; }
-      else fill = `color-mix(in srgb, var(${v}) ${Math.min(100, 45 + s.margin * 2.2).toFixed(0)}%, var(--land))`;
+      else { fill = `var(${v})`; fillP = Math.min(100, 45 + s.margin * 2.2); }
       txt = Math.round(s.p) + "%";
       const k = s.top.partido;
       lead[k] = lead[k] || { n: 0, nome: state.cargo === 1 ? title(s.top.nmu) : k, col: colorFor(s.top) };
       lead[k].n++;
     } else if (inScope) { none++; if (s) txt = "0%"; }
-    path.style.fill = fill; path.classList.toggle("dim", isRegion(state.uf) && !regionUfs(state.uf).includes(uf));
+    setFill(path, fill, fillP); path.classList.toggle("dim", isRegion(state.uf) && !regionUfs(state.uf).includes(uf));
     path.classList.toggle("sel", state.uf === uf);
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
     if (lp) lp.textContent = txt;

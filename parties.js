@@ -7,7 +7,13 @@ async function loadParties(force) {
   pt.loading = true; pt.stamp = Date.now();
   $("ptStatus").textContent = "Atualizando dados dos partidos…";
   const jobs = [];
+  // no site publicado, os deputados federais vêm de um resumo calculado no servidor (~35 KB em vez de ~6 MB)
+  let useRes = false;
+  if (USE_PROXY && !pt.full) {
+    try { const r = await fetch("/api/resumo/dep6", { cache: "no-cache" }); if (r.ok) { pt.res6 = await r.json(); useRes = !!pt.res6.parties; } } catch {}
+  }
   for (const cargo of [3, 5, 6]) for (const [uf] of UFS) {
+    if (cargo === 6 && useRes) continue;
     if (cargo !== 6 && mapCargo === cargo && mapData[uf]) { pt.data[cargo][uf] = mapData[uf]; continue; }
     jobs.push(getJSON(`6259/dados/${uf}/${uf}-c${String(cargo).padStart(4, "0")}-e006259-u.json`).then(d => { pt.data[cargo][uf] = d; }).catch(() => {}));
   }
@@ -20,18 +26,19 @@ function aggregateParties() {
   const P = {};
   const get = sg => P[sg] = P[sg] || { sg, cam: 0, votos: 0, gov: 0, govE: 0, govUF: [], sen: 0, senE: 0 };
   let vvCam = 0, seatsKnown = 0, pstSum = 0, pstN = 0;
-  for (const [uf, d] of Object.entries(pt.data[6])) {
-    const c = d.carg[0];
+  const full6 = Object.keys(pt.data[6]).length === 27;
+  if (!full6 && pt.res6 && pt.res6.parties) {
+    // resumo do servidor
+    for (const [sg, x] of Object.entries(pt.res6.parties)) { const r = get(sg); r.cam = x.cam; r.votos = x.votos; }
+    vvCam = pt.res6.vvCam; seatsKnown = pt.res6.seatsKnown; pstSum = pt.res6.pst; pstN = 1;
+  } else for (const [uf, d] of Object.entries(pt.data[6])) {
     vvCam += +d.v.vv || 0; pstSum += num(d.s.pstn); pstN++;
-    for (const a of c.agr || []) {
+    for (const a of d.carg[0].agr || []) {
       for (const p of a.par || []) get(p.sg).votos += +p.tvan || 0;
-      const vag = +a.vag || 0;
-      if (!vag) continue;
-      seatsKnown += vag;
-      // dentro da federação/partido, as cadeiras vão aos mais votados
-      const cands = a.par.flatMap(p => p.cand.filter(x => !x.dvt || x.dvt.startsWith("Válido")).map(x => ({ v: +x.vap, sg: p.sg })));
-      cands.sort((x, y) => y.v - x.v).slice(0, vag).forEach(x => get(x.sg).cam++);
+      seatsKnown += +a.vag || 0;
     }
+    // mesma regra da aba Deputados: vagas do TSE; dentro da lista, os mais votados com >= 10% do QE
+    for (const x of depResult(d, uf).all) if (x.inside) get(x.partido).cam++;
   }
   for (const [uf, d] of Object.entries(pt.data[3])) {
     const l = candidatos(d)[0];

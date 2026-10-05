@@ -134,6 +134,16 @@ function renderDepBrasil() {
   const ufs = Object.keys(data || {});
   $("depKpis").innerHTML = "";
   $("depHemi").innerHTML = ""; $("depLeg").innerHTML = "";
+  if (ufs.length < 27 && pt.res6 && pt.res6.top && !pt.full) {
+    // resumo do servidor: todos os que estão entrando + os 600 mais votados
+    const all = pt.res6.top.map(x => ({ ...x }));
+    const partial = dep.show !== "in";
+    $("depList").innerHTML = depListBlock(all, dep.show === "in" ? "Deputados federais entrando, por votos" : dep.show === "out" ? "Suplentes e não eleitos mais votados do Brasil" : "Candidatos a deputado federal mais votados do Brasil", x => ` · ${x.uf.toUpperCase()}`) +
+      (partial ? `<p class="feednote">Mostrando os 600 mais votados do Brasil (de ${fmt(pt.res6.total)} candidatos). <button class="linkbtn" id="depFull">Carregar a lista completa</button> (baixa os 27 estados, ~6 MB).</p>` : "") +
+      `<p class="feednote">Ranking nacional por votos nominais, com a apuração atual de cada estado.</p>`;
+    if ($("depFull")) $("depFull").onclick = () => { pt.full = true; pt.stamp = 0; dep.brWait = false; renderDep(); };
+    return;
+  }
   if (ufs.length < 27) {
     $("depList").innerHTML = `<p class="cv-hint">Carregando os 27 estados…</p>`;
     // sem encadear renderDep direto (evita ciclo enquanto outra carga está em andamento): tenta de novo em 1,5 s
@@ -155,7 +165,10 @@ function renderDepBrasil() {
 /* perfil rápido do deputado */
 function openDep(sq, uf) {
   let x = null, R = null;
-  if (dep.view === "br") { R = depResult(pt.data[6][uf], uf); x = R.all.find(y => y.sqcand === sq); }
+  if (dep.view === "br") {
+    if (!pt.data[6][uf]) { getJSON(depFile(6, uf)).then(d => { pt.data[6][uf] = d; openDep(sq, uf); }).catch(() => {}); return; }
+    R = depResult(pt.data[6][uf], uf); x = R.all.find(y => y.sqcand === sq);
+  }
   else { R = dep.last; x = R && R.all.find(y => y.sqcand === sq); }
   if (!x) return;
   const lastIn = [...R.inside].sort((a, b) => a.vapN - b.vapN)[0];
@@ -183,8 +196,10 @@ function openDep(sq, uf) {
 /* análises para o "Meu analista" (federal, todos os estados) */
 function depInsights(out) {
   const data = typeof pt !== "undefined" ? pt.data[6] : null;
-  if (!data || Object.keys(data).length < 27) return;
-  const all = Object.keys(data).flatMap(uf => depResult(data[uf], uf).all).sort((a, b) => b.vapN - a.vapN);
+  let all;
+  if (data && Object.keys(data).length === 27) all = Object.keys(data).flatMap(uf => depResult(data[uf], uf).all).sort((a, b) => b.vapN - a.vapN);
+  else if (pt.res6 && pt.res6.top) all = pt.res6.top;
+  else return;
   const t = all[0]; if (!t || !t.vapN) return;
   out.push({ cat: "camara", tag: "Deputados", score: 57, col: partyColor(t.partido),
     title: `${title(t.nmu)} (${t.partido}-${t.uf.toUpperCase()}) é o deputado federal mais votado do Brasil até agora`,

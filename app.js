@@ -87,6 +87,22 @@ const place = () => state.uf === "br" ? "Brasil" : REGKEY[state.uf] || UFNAME[st
 
 /* ================= histórico local (variação e evolução) ================= */
 const histKey = () => `h26-${state.cargo}-${state.uf}`;
+/* histórico guardado no servidor (igual para todos os visitantes), mesclado com o local */
+const histSynced = {};
+async function syncHist() {
+  const key = `${state.cargo}-${state.uf}`;
+  if (!USE_PROXY || !/^[135]-(br|[a-z]{2})$/.test(key) || Date.now() - (histSynced[key] || 0) < 60000) return;
+  histSynced[key] = Date.now();
+  try {
+    const r = await fetch(`/api/hist/${key}`, { cache: "no-cache" });
+    if (!r.ok) return;
+    const server = await r.json(), local = store.get(histKey(), []);
+    const byHg = new Map([...server, ...local].map(p => [p.hg, p]));
+    const merged = [...byHg.values()].sort((a, b) => a.m - b.m || (a.hg < b.hg ? -1 : 1));
+    while (merged.length > 600) merged.shift();
+    store.set(histKey(), merged);
+  } catch {}
+}
 function pushHist(d, list) {
   const h = store.get(histKey(), []);
   if (h.length && h[h.length - 1].hg === d.hg) return h;
@@ -501,6 +517,7 @@ async function load() {
     const prevD = last && last.cdabr === d.cdabr && last.ele === d.ele ? last : null;
     last = d;
     renderKPIs(d);
+    await Promise.race([syncHist(), new Promise(r => setTimeout(r, 2000))]);
     if (d.multi) renderRegionRaces(d); else renderResults(d, list);
     renderDonut(d, list);
     feedFromMain(prevD, d, list);

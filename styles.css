@@ -585,3 +585,5 @@ body.has-ticker .toast{bottom:calc(66px + env(safe-area-inset-bottom))}
 
 .nav .navlink{color:rgba(255,255,255,.82);font-weight:600;font-size:14px;padding:8px 12px;border-radius:9px;text-decoration:none}
 .nav .navlink:hover{background:rgba(255,255,255,.08);color:#fff}
+
+.linkbtn{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}

@@ -1,0 +1,9 @@
+{
+  "name": "central-eleicoes-2026",
+  "private": true,
+  "type": "module",
+  "description": "Central das Eleições 2026: site estático + funções Netlify (intermediário, coleta e resumo)",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.3"
+  }
+}

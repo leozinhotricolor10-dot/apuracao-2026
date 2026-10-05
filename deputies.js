@@ -58,15 +58,45 @@ function depControls() {
   $("depUf").disabled = dep.view === "br";
 }
 
-function depCard(x, extra = "") {
-  const col = partyColor(x.partido);
-  const tag = x.inside ? (dep_isOfficial(x) ? `<span class="dtag ok">${esc(x.st || "Eleito")}</span>` : `<span class="dtag in">Entrando</span>`) : (x.e === "n" && x.st ? `<span class="dtag">${esc(x.st)}</span>` : "");
-  return `<button class="dcard" data-sq="${x.sqcand}" data-uf="${x.uf}" style="--pc:${col}">
+function depTag(x) {
+  if (x.e === "s") return `<span class="dtag ok">${esc(x.st || "Eleito")}</span>`;
+  if (x.inside) return `<span class="dtag in">Entrando</span>`;
+  if (x.st) return `<span class="dtag">${esc(x.st)}</span>`;                      // situação oficial (Suplente / Não eleito)
+  if (x.dvt && !x.dvt.startsWith("Válido")) return `<span class="dtag sj">${esc(x.dvt)}</span>`;
+  return x.vag > 0 ? `<span class="dtag">${x.posLista - x.vag}º suplente</span>` : `<span class="dtag">Fora</span>`;
+}
+function depCard(x, extra = "", rank = "") {
+  return `<button class="dcard" data-sq="${x.sqcand}" data-uf="${x.uf}"${rank ? ` data-rank="${rank}"` : ""} style="--pc:${partyColor(x.partido)}">
     <span class="dph">${esc(initials(x.nmu))}<img src="${depPhoto(x.uf, x.sqcand)}" alt="" loading="lazy" onerror="this.remove()"></span>
     <span class="dnm"><b>${esc(title(x.nmu))}</b><em><i></i>${esc(x.partido)}${extra}</em></span>
-    <span class="dvt"><b class="num">${fmt(x.vapN)}</b><em class="num">${pct(x.pct, 2)}</em>${tag}</span>
+    <span class="dvt"><b class="num">${fmt(x.vapN)}</b><em class="num">${pct(x.pct, 2)}</em>${depTag(x)}</span>
   </button>`;
 }
+
+/* filtros da lista: situação, partido, busca; paginação para listas grandes */
+const DEP_SHOW = { in: "Entrando / eleitos", out: "Suplentes e não eleitos", all: "Todos os candidatos" };
+const DEP_PAGE = 60;
+Object.assign(dep, { show: "in", party: "", page: 1 });
+function depFilter(list) {
+  const q = norm(dep.q), qn = dep.q.trim();
+  return list.filter(x =>
+    (dep.show === "all" || (dep.show === "in" ? x.inside : !x.inside)) &&
+    (!dep.party || x.partido === dep.party) &&
+    (!q || norm(x.nmu).includes(q) || norm(x.nm).includes(q) || norm(x.partido).includes(q) || x.n === qn));
+}
+function depListBlock(all, titleTxt, extraFor) {
+  const parties = [...new Set(all.map(x => x.partido))].sort((a, b) => a.localeCompare(b));
+  if (dep.party && !parties.includes(dep.party)) dep.party = "";
+  const list = depFilter(all), shown = list.slice(0, dep.page * DEP_PAGE);
+  return `<div class="dfil">
+      <div class="seg" id="depShow">${Object.entries(DEP_SHOW).map(([k, t]) => `<button data-s="${k}" aria-selected="${dep.show === k}">${t}</button>`).join("")}</div>
+      <div class="sel"><select id="depParty" aria-label="Partido"><option value="">Todos os partidos</option>${parties.map(sg => `<option value="${esc(sg)}"${dep.party === sg ? " selected" : ""}>${esc(sg)}</option>`).join("")}</select></div>
+    </div>
+    <h3 class="pt-h">${titleTxt} <span class="cv-hint">(${fmt(list.length)})</span></h3>
+    <div class="dgrid ${dep.view === "br" ? "rank" : ""}">${shown.map(x => depCard(x, extraFor ? extraFor(x) : "", x.rankBr ? `${x.rankBr}º` : "")).join("") || `<p class="cv-hint">Nenhum candidato com esses filtros.</p>`}</div>
+    ${list.length > shown.length ? `<button class="more" id="depMore">Carregar mais (${fmt(list.length - shown.length)} restantes)</button>` : ""}`;
+}
+
 const dep_isOfficial = x => x.e === "s";
 
 function renderDep() {
@@ -76,37 +106,27 @@ function renderDep() {
   if (!raw) { $("depList").innerHTML = `<div class="skel"></div><div class="skel"></div>`; return; }
   const R = depResult(raw, dep.uf);
   dep.last = R;
-  // cabeçalho
   const parties = Object.entries(R.seats).sort((a, b) => b[1] - a[1]);
   $("depKpis").innerHTML =
     `<div class="pk"><div class="l">Vagas</div><div class="v"><b class="num">${R.nv}</b></div><div class="s">${DEP_CARGO[dep.cargo]} · ${esc(UFNAME[dep.uf])}</div></div>` +
     `<div class="pk"><div class="l">Urnas apuradas</div><div class="v"><b class="num">${p1(R.pst)}</b></div><div class="s">${R.official ? "resultado oficial do TSE" : "distribuição parcial de vagas"}</div></div>` +
     `<div class="pk"><div class="l">Quociente eleitoral</div><div class="v"><b class="num">${R.qe ? fmt(R.qe) : "–"}</b></div><div class="s">votos válidos ÷ vagas</div></div>` +
-    `<div class="pk" style="--pc:${parties[0] ? partyColor(parties[0][0]) : "var(--line)"}"><div class="l">Maior bancada</div><div class="v">${parties[0] ? `<i></i>${esc(parties[0][0])} <b class="num">${parties[0][1]}</b>` : "–"}</div><div class="s">${parties.length} partidos com cadeiras</div></div>`;
-  // hemiciclo
+    `<div class="pk" style="--pc:${parties[0] ? partyColor(parties[0][0]) : "var(--line)"}"><div class="l">Maior bancada</div><div class="v">${parties[0] ? `<i></i>${esc(parties[0][0])} <b class="num">${parties[0][1]}</b>` : "–"}</div><div class="s">${parties.length} partidos com cadeiras · ${fmt(R.all.length)} candidatos</div></div>`;
   const H = hemicycle(R.nv || 1, Math.max(2, Math.round(Math.sqrt(R.nv) * 0.58)));
   const cols = []; parties.forEach(([sg, n]) => { for (let i = 0; i < n; i++) cols.push(sg); });
   const S = 200;
   $("depHemi").innerHTML = H.pts.map((p, i) => `<circle cx="${(S + p.x * S).toFixed(1)}" cy="${(S - p.y * S + 6).toFixed(1)}" r="${(H.dot * S).toFixed(2)}" fill="${cols[i] ? partyColor(cols[i]) : "var(--land)"}"/>`).join("") +
     `<text x="${S}" y="${S - 10}" text-anchor="middle" style="font:700 34px 'Space Grotesk',sans-serif;fill:var(--text)">${R.inside.length}</text><text x="${S}" y="${S + 6}" text-anchor="middle" style="font:500 11px Inter,sans-serif;fill:var(--muted)">de ${R.nv} cadeiras</text>`;
-  $("depLeg").innerHTML = parties.map(([sg, n]) => `<span><i style="background:${partyColor(sg)}"></i>${esc(sg)} <b class="num">${n}</b></span>`).join("");
-  // lista
-  const q = norm(dep.q);
-  const match = x => !q || norm(x.nmu).includes(q) || norm(x.nm).includes(q) || norm(x.partido).includes(q) || x.n === dep.q.trim();
-  const ins = R.inside.filter(match);
+  $("depLeg").innerHTML = parties.map(([sg, n]) => `<button class="pchip ${dep.party === sg ? "on" : ""}" data-p="${esc(sg)}"><i style="background:${partyColor(sg)}"></i>${esc(sg)} <b class="num">${n}</b></button>`).join("");
+  const titleTxt = dep.show === "in" ? (R.official ? "Eleitos" : "Quem está entrando agora") : dep.show === "out" ? "Suplentes e não eleitos" : "Todos os candidatos";
   const lastIn = [...R.inside].sort((a, b) => a.vapN - b.vapN).slice(0, 3);
-  const limit = dep.showAll || q ? ins.length : 24;
-  $("depList").innerHTML = `
-    <h3 class="pt-h">${R.official ? "Eleitos" : "Quem está entrando agora"} <span class="cv-hint">(${ins.length}${q ? " encontrados" : ""})</span></h3>
-    <div class="dgrid">${ins.slice(0, limit).map(x => depCard(x)).join("") || `<p class="cv-hint">Nenhum deputado encontrado.</p>`}</div>
-    ${ins.length > limit ? `<button class="more" id="depMore">Ver todos os ${ins.length}</button>` : ""}
-    ${!q && R.inside.length ? `<div class="dedge">
+  const edge = dep.show === "in" && !dep.q && !dep.party && R.inside.length;
+  $("depList").innerHTML = depListBlock(R.all, titleTxt, x => !x.inside && x.vag > 0 ? ` · ${x.posLista}º da lista` : "") +
+    (edge ? `<div class="dedge">
       <div><h4>Na beirada: últimos a entrar</h4>${lastIn.map(x => depCard(x)).join("")}</div>
       <div><h4>Primeiros da fila (suplentes)</h4>${R.next.slice(0, 3).map(x => depCard(x, ` · ${x.posLista}º da lista`)).join("") || `<p class="cv-hint">—</p>`}</div>
-    </div>` : ""}
-    ${q ? `<h3 class="pt-h" style="margin-top:16px">Outros candidatos encontrados</h3><div class="dgrid">${R.all.filter(x => !x.inside && match(x)).slice(0, 24).map(x => depCard(x)).join("") || `<p class="cv-hint">—</p>`}</div>` : ""}
-    <p class="feednote">${R.official ? "Situação oficial do TSE." : `Vagas por partido/federação: distribuição atual calculada pelo TSE. Dentro de cada lista, entram os mais votados com pelo menos 10% do quociente eleitoral (${fmt(Math.ceil(R.qe * 0.1))} votos). Muda até o fim da apuração.`}</p>`;
-  if ($("depMore")) $("depMore").onclick = () => { dep.showAll = true; renderDep(); };
+    </div>` : "") +
+    `<p class="feednote">${R.official ? "Situação oficial do TSE." : `Vagas por partido/federação: distribuição atual calculada pelo TSE. Dentro de cada lista, entram os mais votados com pelo menos 10% do quociente eleitoral (${fmt(Math.ceil(R.qe * 0.1))} votos). Muda até o fim da apuração.`}</p>`;
 }
 
 function renderDepBrasil() {
@@ -114,15 +134,22 @@ function renderDepBrasil() {
   const ufs = Object.keys(data || {});
   $("depKpis").innerHTML = "";
   $("depHemi").innerHTML = ""; $("depLeg").innerHTML = "";
-  if (ufs.length < 27) { $("depList").innerHTML = `<p class="cv-hint">Carregando os 27 estados…</p>`; if (typeof loadParties === "function") loadParties(true).then(renderDep); return; }
+  if (ufs.length < 27) {
+    $("depList").innerHTML = `<p class="cv-hint">Carregando os 27 estados…</p>`;
+    // sem encadear renderDep direto (evita ciclo enquanto outra carga está em andamento): tenta de novo em 1,5 s
+    if (!dep.brWait) {
+      dep.brWait = true;
+      if (typeof loadParties === "function" && !pt.loading) loadParties(true);
+      setTimeout(() => { dep.brWait = false; if (dep.view === "br") renderDep(); }, 1500);
+    }
+    return;
+  }
   const all = ufs.flatMap(uf => depResult(data[uf], uf).all);
   all.sort((a, b) => b.vapN - a.vapN);
-  const q = norm(dep.q), list = all.filter(x => !q || norm(x.nmu).includes(q) || norm(x.partido).includes(q)).slice(0, dep.showAll ? 100 : 30);
-  $("depList").innerHTML = `<h3 class="pt-h">Deputados federais mais votados do Brasil</h3>
-    <div class="dgrid rank">${list.map((x, i) => depCard(x, ` · ${x.uf.toUpperCase()}`).replace('<button class="dcard"', `<button class="dcard" data-rank="${i + 1}º"`)).join("")}</div>
-    ${!dep.showAll ? `<button class="more" id="depMore">Ver os 100 mais votados</button>` : ""}
-    <p class="feednote">Soma de votos nominais de cada candidato no seu estado, com a apuração atual de cada estado.</p>`;
-  if ($("depMore")) $("depMore").onclick = () => { dep.showAll = true; renderDep(); };
+  all.forEach((x, i) => x.rankBr = i + 1);
+  const titleTxt = dep.show === "in" ? "Deputados federais entrando, por votos" : dep.show === "out" ? "Suplentes e não eleitos mais votados do Brasil" : "Todos os candidatos a deputado federal do Brasil";
+  $("depList").innerHTML = depListBlock(all, titleTxt, x => ` · ${x.uf.toUpperCase()}`) +
+    `<p class="feednote">Ranking nacional por votos nominais, com a apuração atual de cada estado. O número à esquerda é a posição entre todos os ${fmt(all.length)} candidatos.</p>`;
 }
 
 /* perfil rápido do deputado */
@@ -169,13 +196,19 @@ function depInsights(out) {
   if (UFNAME[state.uf]) dep.uf = state.uf;
   $("depTabs").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    dep.showAll = false;
+    dep.page = 1;
     if (b.dataset.c === "br") { dep.view = "br"; renderDep(); return; }
     dep.view = "uf"; dep.cargo = +b.dataset.c; loadDep();
   });
-  $("depUf").onchange = e => { dep.uf = e.target.value; dep.showAll = false; loadDep(); };
-  $("depQ").addEventListener("input", e => { dep.q = e.target.value; dep.showAll = false; renderDep(); });
-  $("depList").addEventListener("click", e => { const c = e.target.closest(".dcard"); if (c) openDep(c.dataset.sq, c.dataset.uf); });
+  $("depUf").onchange = e => { dep.uf = e.target.value; dep.page = 1; loadDep(); };
+  $("depQ").addEventListener("input", e => { dep.q = e.target.value; dep.page = 1; renderDep(); });
+  $("depList").addEventListener("click", e => {
+    const c = e.target.closest(".dcard"); if (c) return openDep(c.dataset.sq, c.dataset.uf);
+    const sb = e.target.closest("#depShow button"); if (sb) { dep.show = sb.dataset.s; dep.page = 1; return renderDep(); }
+    if (e.target.closest("#depMore")) { dep.page++; renderDep(); }
+  });
+  $("depList").addEventListener("change", e => { if (e.target.id === "depParty") { dep.party = e.target.value; dep.page = 1; renderDep(); } });
+  $("depLeg").addEventListener("click", e => { const b = e.target.closest(".pchip"); if (b) { dep.party = dep.party === b.dataset.p ? "" : b.dataset.p; dep.page = 1; dep.show = "in"; renderDep(); } });
   $("depModal").addEventListener("click", e => { if (e.target === $("depModal")) $("depModal").hidden = true; });
   addEventListener("keydown", e => { if (e.key === "Escape") $("depModal").hidden = true; });
   new IntersectionObserver(es => { dep.visible = es[0].isIntersecting; if (dep.visible) loadDep(); }, { rootMargin: "300px" }).observe($("deputados"));

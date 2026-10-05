@@ -572,3 +572,13 @@ body.has-ticker .toast{bottom:calc(66px + env(safe-area-inset-bottom))}
 #stTable,#listView{overflow-x:auto}
 
 .err.info{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+
+.dfil{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.dfil .seg button{font-size:12.5px;padding:7px 10px}
+.dfil .sel select{min-width:170px}
+.pchip{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;background:transparent;color:var(--text);font-size:12.5px;padding:3px 8px;border-radius:99px;cursor:pointer}
+.pchip:hover{background:var(--surface-2)}
+.pchip.on{border-color:var(--text);background:var(--surface-2)}
+.pchip i{width:10px;height:10px;border-radius:50%}
+.dtag.sj{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+@media (max-width:640px){ .dfil .seg{width:100%;overflow-x:auto} .dfil .seg button{flex:none} .dfil .sel,.dfil .sel select{width:100%} }

@@ -210,8 +210,10 @@ function renderAnalyst() {
   try { govInsights(out); } catch (e) { console.warn(e); }
   try { senInsights(out); } catch (e) { console.warn(e); }
   try { if (typeof depInsights === "function") depInsights(out); } catch (e) { console.warn(e); }
+  try { if (typeof runoffInsights === "function") runoffInsights(out); } catch (e) { console.warn(e); }
   out.sort((p, q) => q.score - p.score);
   an.out = out;
+  if (typeof renderRunoff === "function") renderRunoff();
   const shown = an.filter === "all" ? out : out.filter(x => x.cat === an.filter);
   $("anMeta").textContent = an.br ? `Com os números do TSE das ${an.br.hg.slice(0, 5)} · ${p1(num(an.br.s.pstn))} das urnas apuradas para Presidente` : "Lendo os números…";
   $("anChips").innerHTML = Object.entries(CATS).map(([k, t]) => `<button data-k="${k}" aria-pressed="${an.filter === k}">${t}${k !== "all" ? ` <b>${out.filter(x => x.cat === k).length}</b>` : ""}</button>`).join("");

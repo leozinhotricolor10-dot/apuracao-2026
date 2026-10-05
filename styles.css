@@ -530,6 +530,54 @@ body.has-ticker .toast{bottom:calc(66px + env(safe-area-inset-bottom))}
 @media (max-width:1000px){ .dgrid{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:640px){ .dedge{grid-template-columns:minmax(0,1fr)} .dep-ctl .sel,.dep-ctl .sel select{width:100%} }
 
+/* ================= simulador do 2º turno ================= */
+.runoff{margin-top:14px}
+.ro-modes{margin-bottom:16px;width:max-content;max-width:100%}
+.ro-duel{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center}
+.ro-side{display:flex;align-items:center;gap:12px}
+.ro-side.r{flex-direction:row-reverse;text-align:right}
+.ro-ph{width:62px;height:62px;border-radius:50%;overflow:hidden;position:relative;display:grid;place-items:center;background:var(--surface-2);border:3px solid var(--col);font-weight:800;color:var(--muted);flex:none}
+.ro-ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ro-side b{display:block;font-size:15px}
+.ro-side em{display:block;font-style:normal;font-size:32px;font-weight:700;color:var(--col);line-height:1.05;font-family:"Space Grotesk",sans-serif}
+.ro-track{height:22px;border-radius:99px;background:var(--surface-2);position:relative;overflow:hidden;display:flex}
+.ro-track .a,.ro-track .b{height:100%;transition:width .5s}
+.ro-track .b{margin-left:auto}
+.ro-track .mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--text);opacity:.6}
+.ro-head{font-size:16px;margin:14px 0 16px}
+.ro-be{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.ro-be div{background:var(--surface-2);border-radius:14px;padding:12px 14px}
+.ro-be span{display:block;font-size:12.5px;color:var(--muted);font-weight:600}
+.ro-be b{display:block;font-size:26px;font-weight:700;margin:2px 0}
+.ro-be em{display:block;font-style:normal;font-size:12px;color:var(--faint)}
+.ro-sl{display:block;font-size:14px;margin-bottom:12px}
+.ro-range{position:relative;margin:10px 0 6px}
+.ro-range input,.ro-cand input{width:100%;accent-color:var(--col)}
+.ro-range .mk{position:absolute;top:-6px;width:3px;height:28px;margin-left:-1.5px;border-radius:2px;pointer-events:none}
+.mk.be,.ro-leg i.be{background:var(--text)}
+.mk.y22,.ro-leg i.y22{background:var(--c4)}
+.ro-leg{display:flex;gap:6px 14px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.ro-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.ro-adv{margin:6px 0 14px;font-size:13.5px}
+.ro-adv summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.ro-cand{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.ro-cand span em{font-style:normal;color:var(--muted);font-size:12px}
+.ro-cand b{font-size:12.5px;white-space:nowrap}
+.ro-map{display:grid;grid-template-columns:minmax(0,340px) auto;gap:16px;align-items:center}
+#roMap{width:100%;height:auto;display:block}
+.ro-mapleg{display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:600}
+.ro-mapleg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:8px;vertical-align:-1px}
+@media (max-width:640px){
+  .ro-duel{grid-template-columns:1fr 1fr;gap:10px}
+  .ro-track{grid-column:1/-1;grid-row:2}
+  .ro-ph{width:46px;height:46px}
+  .ro-side em{font-size:24px}
+  .ro-be{grid-template-columns:minmax(0,1fr)}
+  .ro-modes{width:100%} .ro-modes button{flex:1}
+  .ro-cand{grid-template-columns:minmax(0,1fr) auto} .ro-cand input{grid-column:1/-1;grid-row:2}
+  .ro-map{grid-template-columns:minmax(0,1fr)}
+}
+
 /* ================= responsive ================= */
 @media (max-width:1280px){
   .nav{display:none}
@@ -587,3 +635,5 @@ body.has-ticker .toast{bottom:calc(66px + env(safe-area-inset-bottom))}
 .nav .navlink:hover{background:rgba(255,255,255,.08);color:#fff}
 
 .linkbtn{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}
+
+.nav button,.nav .navlink{white-space:nowrap}

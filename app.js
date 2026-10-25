@@ -110,6 +110,7 @@ const histKey = () => `h26-${histId()}`;
 const histSynced = {};
 async function syncHist() {
   const key = histId();
+  if (waiting(last)) return;   // 2º turno ainda sem votos: não há histórico
   if (!USE_PROXY || !/^(t2-)?[135]-(br|[a-z]{2})$/.test(key) || Date.now() - (histSynced[key] || 0) < 60000) return;
   histSynced[key] = Date.now();
   try {

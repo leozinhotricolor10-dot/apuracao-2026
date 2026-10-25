@@ -374,19 +374,58 @@ function paintStates() {
   if (typeof renderRegionCards === "function") renderRegionCards();
 }
 
+/* ---- comparação com o 1º turno (tooltip do mapa no 2º turno) ----
+   Os arquivos do 1º turno (6257 Presidente, 6259 Governador) já são finais: buscamos sob demanda, uma vez por cargo/UF, e guardamos em memória.
+   Comparação em % dos votos válidos (não em votos absolutos), porque a apuração do 2º turno está parcial. Candidatos casados pelo número. */
+const t1Cache = {};
+function t1Get(cargo, uf) {
+  const k = cargo + "/" + uf, c = t1Cache[k];
+  if (c && (c.d || c.p || Date.now() - c.err < 60000)) return c;
+  const e = t1Cache[k] = { d: null, err: 0, p: null };
+  e.p = getJSON(fileFor(cargo, uf, 1)).then(d => { e.d = d; e.p = null; }).catch(() => { e.err = Date.now(); e.p = null; });
+  return e;
+}
+const cmpOn = uf => state.turno === 2 && (state.cargo === 1 || (state.cargo === 3 && T2_GOV.includes(uf)));
+const ppDelta = v => (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " p.p.";
+let tipCur = null, tipTimer = 0;
+function cmpHtml(uf, s) {
+  const e = t1Get(state.cargo, uf);
+  if (!e.d) {
+    if (e.p) e.p.then(() => { if (tipCur && tipCur.uf === uf && $("tip").style.opacity === "1") showTip(uf, tipCur.x, tipCur.y); });
+    return `<div class="s" style="margin:8px 0 0">${e.p ? "Carregando o 1º turno…" : "Resultado do 1º turno indisponível agora."}</div>`;
+  }
+  const l1 = candidatos(e.d), fin = s.list.slice(0, 2);
+  const rows = fin.map(c => {
+    const a = l1.find(x => String(x.n) === String(c.n)), p2 = num(c.pvapn);
+    if (!a) return `<div class="cm"><b style="color:${colorFor(c)}">${esc(title(c.nmu))}</b><span class="d">–</span><div class="l">2º turno ${pct(p2, 1)} · não disputou o 1º turno</div></div>`;
+    const p1 = num(a.pvapn);
+    return `<div class="cm"><b style="color:${colorFor(c)}">${esc(title(c.nmu))}</b><span class="d num">${ppDelta(p2 - p1)}</span><div class="l num">1º turno ${pct(p1, 1)} → 2º turno ${pct(p2, 1)}</div></div>`;
+  }).join("");
+  const w = l1[0] && +l1[0].vap > 0 ? `<div class="s" style="margin:8px 0 0">Mais votado no 1º turno aqui: ${esc(title(l1[0].nmu))} (${pct(num(l1[0].pvapn), 1)})</div>` : "";
+  const note = s.pst < 5 ? `<div class="s" style="margin:4px 0 0"><i>Apuração ainda no início: a parcial pode mudar bastante.</i></div>` : "";
+  return `<div class="s" style="margin:6px 0 0">Em % dos votos válidos · 1º turno (final) × 2º turno (${pct(s.pst, 1)} apurado)</div>${rows}${w}${note}`;
+}
+function placeTip(tip, x, y) {
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(x + 16, innerWidth - w - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(y + 16, innerHeight - h - 10)) + "px";
+}
 function showTip(uf, x, y) {
   const s = inPlay(uf) ? stateInfo(uf) : null, tip = $("tip");
+  tipCur = { uf, x, y };
+  const cmp = !!s && s.has && s.list.length >= 2 && cmpOn(uf);
+  tip.classList.toggle("cmp", cmp);
   if (!inPlay(uf)) {
     tip.innerHTML = `<h4>${esc(UFNAME[uf])}</h4><div class="s">Governador eleito no 1º turno. Toque para ver o resultado.</div>`;
-    tip.style.opacity = 1; tip.style.left = Math.min(x + 16, innerWidth - 266) + "px"; tip.style.top = Math.min(y + 16, innerHeight - tip.offsetHeight - 10) + "px";
+    tip.style.opacity = 1; placeTip(tip, x, y);
     return;
   }
   if (!s) { tip.style.opacity = 0; return; }
   tip.innerHTML = `<h4>${esc(UFNAME[uf])}</h4><div class="s">${pct(s.pst)} das urnas apuradas${s.has && s.margin < TIGHT && s.second ? " · disputa acirrada" : ""}</div>` +
-    s.list.slice(0, 3).map(c => `<div class="r" style="--col:${colorFor(c)}"><span>${esc(title(c.nmu))}</span><b class="num">${c.pvap}%</b><div class="b"><div style="width:${num(c.pvapn)}%"></div></div></div>`).join("");
+    s.list.slice(0, 3).map(c => `<div class="r" style="--col:${colorFor(c)}"><span>${esc(title(c.nmu))}</span><b class="num">${c.pvap}%</b><div class="b"><div style="width:${num(c.pvapn)}%"></div></div></div>`).join("") +
+    (cmp ? cmpHtml(uf, s) : "");
   tip.style.opacity = 1;
-  tip.style.left = Math.min(x + 16, innerWidth - 266) + "px";
-  tip.style.top = Math.min(y + 16, innerHeight - tip.offsetHeight - 10) + "px";
+  placeTip(tip, x, y);
 }
 
 /* ================= regiões ================= */
@@ -741,12 +780,19 @@ map.addEventListener("click", e => {
   if (drag && drag.moved) return;
   const t = e.target.closest("[data-uf]"); if (!t) return;
   const uf = t.dataset.uf;
+  // toque (celular): mostra também o quadro de comparação com o 1º turno por alguns segundos
+  if (e.pointerType && e.pointerType !== "mouse" && mapMode !== "proj" && cmpOn(uf)) {
+    showTip(uf, e.clientX, e.clientY);
+    clearTimeout(tipTimer); tipTimer = setTimeout(() => $("tip").style.opacity = 0, 8000);
+  }
   go(state.cargo, state.uf === uf ? (state.cargo === 1 ? "br" : state.turno === 2 && state.cargo === 3 ? T2_KEY : uf) : uf);
 });
 map.addEventListener("pointermove", e => {
   if (e.pointerType !== "mouse") return;
   const t = e.target.closest("[data-uf]");
-  t && !(drag && drag.moved) ? (mapMode === "proj" ? showProjTip : showTip)(t.dataset.uf, e.clientX, e.clientY) : ($("tip").style.opacity = 0);
+  clearTimeout(tipTimer);
+  if (t && !(drag && drag.moved)) { if (mapMode === "proj") $("tip").classList.remove("cmp"); (mapMode === "proj" ? showProjTip : showTip)(t.dataset.uf, e.clientX, e.clientY); }
+  else $("tip").style.opacity = 0;
 });
 map.addEventListener("mouseleave", () => $("tip").style.opacity = 0);
 addEventListener("scroll", () => $("tip").style.opacity = 0, { passive: true });

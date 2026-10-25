@@ -239,7 +239,15 @@ function buildMap() {
   const svg = $("map");
   let defs = "", shapes = "", labels = "", callouts = "";
   for (const v of [...PALETTE, ...Object.values(colorOf)]) defs += stripe(v);
-  for (const [uf, d] of Object.entries(BR_MAP.paths)) shapes += `<path class="st" data-uf="${uf}" d="${d}" fill="var(--land)"/>`;
+  // "copo d'água": cada UF tem uma máscara (retângulo que sobe da base) e um caminho-base neutro por baixo.
+  // O prefixo MAPID evita IDs duplicados se o mapa for renderizado mais de uma vez.
+  let bases = "", masks = "";
+  for (const [uf, d] of Object.entries(BR_MAP.paths)) {
+    bases += `<path class="base" data-uf="${uf}" d="${d}" fill="var(--land)" style="display:none"/>`;
+    masks += `<mask id="${MAPID}-${uf}" maskUnits="objectBoundingBox" maskContentUnits="objectBoundingBox" x="-0.1" y="-0.1" width="1.2" height="1.2"><rect id="${MAPID}r-${uf}" x="-1" y="0" width="3" height="3" fill="#fff"/></mask>`;
+    shapes += `<path class="st" data-uf="${uf}" d="${d}" fill="var(--land)"/>`;
+  }
+  defs += masks;
   for (const [uf, [x, y]] of Object.entries(BR_MAP.labels)) {
     if (CALLOUT[uf]) {
       const [tx, ty] = CALLOUT[uf];
@@ -249,8 +257,27 @@ function buildMap() {
       labels += `<g class="lb dark" id="lb-${uf}"><text x="${lx}" y="${ly}"><tspan class="u" x="${lx}">${uf.toUpperCase()}</tspan><tspan class="p" x="${lx}" dy="1.15em" id="lp-${uf}"></tspan></text></g>`;
     }
   }
-  svg.innerHTML = `<defs>${defs}</defs><g id="shapes">${shapes}</g><g>${callouts}</g><g>${labels}</g>`;
+  svg.innerHTML = `<defs>${defs}</defs><g id="bases">${bases}</g><g id="shapes">${shapes}</g><path id="selOutline" fill="none" style="display:none"/><g>${callouts}</g><g>${labels}</g>`;
   applyZoom();
+}
+
+/* Preenchimento proporcional ao % apurado (efeito "copo d'água").
+   p = % apurado (0-100) ou null para pintar o estado inteiro (modos Projeção / Só decididos, sem dados).
+   Com p > 0 mostramos no mínimo FILL_MIN% de altura: sem isso, 0,25% apurado seria invisível. */
+const MAPID = "mk", FILL_MIN = 3, levelCur = {};
+function setLevel(uf, p) {
+  const path = document.querySelector(`#map path.st[data-uf="${uf}"]`), base = document.querySelector(`#map path.base[data-uf="${uf}"]`), r = $(`${MAPID}r-${uf}`);
+  if (!path || !base || !r) return;
+  if (p == null || p >= 99.95) { path.removeAttribute("mask"); base.style.display = "none"; levelCur[uf] = 100; return; }
+  const to = p > 0 ? Math.min(100, Math.max(FILL_MIN, p)) : 0, from = levelCur[uf] == null || levelCur[uf] >= 100 ? 0 : levelCur[uf];
+  path.setAttribute("mask", `url(#${MAPID}-${uf})`); base.style.display = "";
+  const put = v => r.setAttribute("y", (1 - v / 100).toFixed(4));
+  levelCur[uf] = to;
+  if (document.hidden || from === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return put(to);
+  const t0 = performance.now(), D = 700;   // sobe suavemente (só custa um atributo por quadro)
+  put(from);
+  const step = now => { const k = Math.min(1, (now - t0) / D); if (levelCur[uf] !== to) return; put(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
 }
 
 const FULL = { x: 0, y: -6, w: 1060, h: 1002 };
@@ -304,8 +331,9 @@ function stateInfo(uf) {
 function paintStates() {
   const lead = {};
   let tight = 0, none = 0, off = 0;
+  const levelOn = mapMode !== "proj" && !state.decidedOnly;
   for (const [uf] of UFS) {
-    const path = document.querySelector(`#map path[data-uf="${uf}"]`);
+    const path = document.querySelector(`#map path.st[data-uf="${uf}"]`);
     const s = stateInfo(uf);
     let fill = "var(--land)", fillP = 100, txt = "";
     const inScope = (!isRegion(state.uf) || regionUfs(state.uf).includes(uf)) && inPlay(uf);
@@ -319,6 +347,7 @@ function paintStates() {
       lead[k] = lead[k] || { n: 0, nome: state.cargo === 1 ? title(s.top.nmu) : k, col: colorFor(s.top) };
       lead[k].n++;
     } else if (inScope) { none++; if (s) txt = "0%"; }
+    setLevel(uf, s && s.has && inScope && levelOn ? s.pst : null);
     setFill(path, fill, fillP); path.classList.toggle("dim", !inPlay(uf) || (isRegion(state.uf) && !regionUfs(state.uf).includes(uf)));
     path.classList.toggle("sel", state.uf === uf);
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
@@ -328,6 +357,9 @@ function paintStates() {
   }
   const sel = document.querySelector("#map path.sel");
   if (sel) sel.parentNode.appendChild(sel);
+  const so = $("selOutline");   // contorno do estado selecionado (o path mascarado perderia o traço na parte vazia)
+  if (so) { const dd = BR_MAP.paths[state.uf]; if (dd) { so.setAttribute("d", dd); so.style.display = ""; } else so.style.display = "none"; }
+  if ($("legNote")) $("legNote").hidden = !levelOn;
   const items = Object.values(lead).sort((a, b) => b.n - a.n);
   $("legTitle").textContent = state.cargo === 1 ? "Quem lidera em cada estado" : "Partido à frente";
   $("legend").innerHTML = items.map(x => `<span><i style="background:${x.col}"></i>${esc(x.nome)}<em>${x.n}</em></span>`).join("") +

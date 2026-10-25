@@ -114,6 +114,9 @@ button,input,select{font:inherit;color:inherit}
 #map path.st{stroke:var(--surface);stroke-width:1.3;stroke-linejoin:round;cursor:pointer;transition:fill .6s,opacity .2s;vector-effect:non-scaling-stroke}
 #map path.st:hover{opacity:.82}
 #map path.sel{stroke:var(--text);stroke-width:2.6}
+#map path.base{stroke:var(--surface);stroke-width:1.3;stroke-linejoin:round;vector-effect:non-scaling-stroke;pointer-events:none}
+#map #selOutline{stroke:var(--text);stroke-width:2.6;stroke-linejoin:round;vector-effect:non-scaling-stroke;pointer-events:none}
+.legnote{margin:8px 0 0;font-size:12px;color:var(--muted)}
 #map .lb{pointer-events:none;font-family:"Space Grotesk",Inter,sans-serif;text-anchor:middle;paint-order:stroke;stroke-linejoin:round}
 #map .lb .u{font-size:calc(18px / var(--z,1));font-weight:700;fill:#fff;stroke:rgba(0,0,0,.3);stroke-width:calc(3px / var(--z,1))}
 #map .lb .p{font-size:calc(13px / var(--z,1));font-weight:600;fill:rgba(255,255,255,.95);stroke:rgba(0,0,0,.25);stroke-width:calc(3px / var(--z,1))}

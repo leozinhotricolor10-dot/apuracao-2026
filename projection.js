@@ -233,8 +233,9 @@ function decorateBars(r) {
 function paintProjection() {
   const counts = { done: 0, certain: 0, likely: 0, lean: 0, toss: 0 }, leaders = {};
   for (const [uf] of UFS) {
-    const path = document.querySelector(`#map path[data-uf="${uf}"]`), P = ufProj[uf];
+    const path = document.querySelector(`#map path.st[data-uf="${uf}"]`), P = ufProj[uf];
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
+    setLevel(uf, null);
     if (!P) { setFill(path, "var(--land)"); if (lp) lp.textContent = ""; if (cp) cp.textContent = ""; if (lb) lb.classList.add("dark"); continue; }
     const v = colorVar(P.lead.c), lvl = P.guaranteed ? "done" : tier(P.p)[1];
     counts[lvl]++;
@@ -288,9 +289,10 @@ function updateWonBtn() {
 function paintDecided() {
   const dec = Object.fromEntries(decidedUfs()), groups = {};
   for (const [uf] of UFS) {
-    const path = document.querySelector(`#map path[data-uf="${uf}"]`), x = dec[uf];
+    const path = document.querySelector(`#map path.st[data-uf="${uf}"]`), x = dec[uf];
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
     path.classList.toggle("dim", !x);
+    setLevel(uf, null);
     if (!x) {
       setFill(path, "var(--land)");
       if (lp) lp.textContent = ""; if (cp) cp.textContent = ""; if (lb) lb.classList.add("dark");

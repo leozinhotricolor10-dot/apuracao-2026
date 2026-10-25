@@ -715,3 +715,24 @@ body.t2 .t1note{display:inline-flex}
   .nav button,.nav .navlink{padding:8px 6px;font-size:12.5px}
   .live small{display:none}
 }
+
+/* contagem regressiva do 2º turno (banner do resumo) */
+.cd{display:flex;align-items:center;justify-content:space-between;gap:14px 24px;flex-wrap:wrap;margin:0 0 12px;padding:14px 18px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,210,63,.35)}
+.cd[hidden]{display:none}
+.cd-txt{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;color:#fff;min-width:0}
+.cd-dot{width:10px;height:10px;border-radius:50%;background:#ffd23f;flex:none;animation:cdpulse 2s ease-in-out infinite}
+.cd.done .cd-dot{background:#5be38f}
+.cd-nums{display:flex;gap:10px}
+.cd-nums[hidden],.cd-u[hidden]{display:none}
+.cd-u{min-width:64px;padding:8px 10px 6px;text-align:center;background:#0a1f45;border:1px solid rgba(255,255,255,.14);border-radius:12px}
+.cd-u b{display:block;font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:36px;line-height:1.05;color:#fff;font-variant-numeric:tabular-nums}
+.cd-u small{display:block;margin-top:2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#a9bde0}
+@keyframes cdpulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.cd-dot{animation:none}}
+@media (max-width:640px){
+  .cd{padding:12px;justify-content:center;text-align:center}
+  .cd-txt{font-size:13.5px;justify-content:center}
+  .cd-nums{gap:6px;width:100%;justify-content:center}
+  .cd-u{flex:1 1 0;min-width:0;padding:7px 4px 5px}
+  .cd-u b{font-size:30px}
+}

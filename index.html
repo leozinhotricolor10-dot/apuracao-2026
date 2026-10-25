@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=29">
+<link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
 
@@ -66,6 +66,15 @@
     <div class="sm-top"><span class="sm-title" id="smTitle">Resumo do 2º turno</span><span class="sm-date" id="smDate">Eleições 2026 · 25 de outubro</span>
       <div class="sm-tabs" id="smTabs" role="tablist" aria-label="Turno do resumo"><button data-v="t2" aria-selected="true">2º turno</button><button data-v="t1" aria-selected="false">1º turno</button></div>
       <span class="sm-status" id="smStatus">carregando…</span></div>
+    <div class="cd" id="cdBox" role="timer" aria-live="off" aria-label="Contagem regressiva para o fechamento das urnas" hidden>
+      <div class="cd-txt"><span class="cd-dot" aria-hidden="true"></span><span id="cdTxt">Fechamento das urnas e início da apuração do 2º turno</span></div>
+      <div class="cd-nums" id="cdNums" aria-hidden="true">
+        <div class="cd-u" id="cdDays"><b id="cdD">0</b><small>dias</small></div>
+        <div class="cd-u"><b id="cdH">00</b><small>horas</small></div>
+        <div class="cd-u"><b id="cdM">00</b><small>min</small></div>
+        <div class="cd-u"><b id="cdS">00</b><small>seg</small></div>
+      </div>
+    </div>
     <div class="sm-tiles" id="smTiles">
       <div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div>
     </div>
@@ -282,16 +291,17 @@
 </div>
 <button class="tk-open" id="tkOpen" hidden>Notícias ao vivo</button>
 
-<script src="br-map.js?v=29"></script>
-<script src="projection.js?v=29"></script>
-<script src="app.js?v=29"></script>
-<script src="parties.js?v=29"></script>
-<script src="candidate.js?v=29"></script>
-<script src="region.js?v=29"></script>
-<script src="analyst.js?v=29"></script>
-<script src="deputies.js?v=29"></script>
-<script src="runoff.js?v=29"></script>
-<script src="summary.js?v=29"></script>
-<script src="ticker.js?v=29"></script>
+<script src="br-map.js?v=30"></script>
+<script src="projection.js?v=30"></script>
+<script src="app.js?v=30"></script>
+<script src="parties.js?v=30"></script>
+<script src="candidate.js?v=30"></script>
+<script src="region.js?v=30"></script>
+<script src="analyst.js?v=30"></script>
+<script src="deputies.js?v=30"></script>
+<script src="runoff.js?v=30"></script>
+<script src="summary.js?v=30"></script>
+<script src="ticker.js?v=30"></script>
+<script src="countdown.js?v=30"></script>
 </body>
 </html>

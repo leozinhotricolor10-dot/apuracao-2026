@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Central das Eleições 2026 · Apuração ao vivo</title>
-<meta name="description" content="Apuração das Eleições 2026 em tempo real: Presidente, Governador e Senador, com mapa por estado. Dados oficiais do TSE.">
+<meta name="description" content="Apuração das Eleições 2026 em tempo real, 1º e 2º turno: Presidente, Governador e Senador, com mapa por estado. Dados oficiais do TSE.">
 <meta property="og:title" content="Central das Eleições 2026 · Apuração ao vivo">
 <meta property="og:description" content="Acompanhe a apuração em tempo real em todo o Brasil. Dados oficiais do TSE.">
 <meta property="og:type" content="website">
@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://resultados.tse.jus.br" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=26">
+<link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
 
@@ -61,9 +61,11 @@
   </div>
 </header>
 
-<section class="summary" id="resumo" aria-label="Resumo do 1º turno">
+<section class="summary" id="resumo" aria-label="Resumo do 2º turno">
   <div class="wrap">
-    <div class="sm-top"><span class="sm-title">Resumo do 1º turno</span><span class="sm-date">Eleições 2026 · 4 de outubro</span><span class="sm-status" id="smStatus">carregando…</span></div>
+    <div class="sm-top"><span class="sm-title" id="smTitle">Resumo do 2º turno</span><span class="sm-date" id="smDate">Eleições 2026 · 25 de outubro</span>
+      <div class="sm-tabs" id="smTabs" role="tablist" aria-label="Turno do resumo"><button data-v="t2" aria-selected="true">2º turno</button><button data-v="t1" aria-selected="false">1º turno</button></div>
+      <span class="sm-status" id="smStatus">carregando…</span></div>
     <div class="sm-tiles" id="smTiles">
       <div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div><div class="sm-tile skel"></div>
     </div>
@@ -99,7 +101,7 @@
     <rect width="1440" height="300" fill="url(#fade)"/>
   </svg>
   <div class="wrap">
-    <div class="eyebrow" id="eyebrow">Eleições 2026 · 1º turno</div>
+    <div class="eyebrow" id="eyebrow">Eleições 2026 · 2º turno</div>
     <h1>Central das <span>Eleições</span></h1>
     <p>Acompanhe a apuração em tempo real em todo o Brasil.</p>
   </div>
@@ -175,7 +177,7 @@
       <div class="ph">
         <h2 id="resTitle">Resultado nacional</h2>
         <div class="sel"><select id="cargo" aria-label="Cargo"><option value="1">Presidente</option><option value="3">Governador</option><option value="5">Senador</option></select></div>
-        <div class="seg"><button aria-selected="true">1º turno</button><button aria-selected="false" disabled title="O 2º turno será em 25/10/2026">2º turno</button></div>
+        <div class="seg" id="turnoSeg" role="tablist" aria-label="Turno"><button data-t="1" aria-selected="false">1º turno</button><button data-t="2" aria-selected="true">2º turno</button></div>
       </div>
       <div id="cands"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </div>
@@ -204,7 +206,7 @@
 
   <!-- Simulador do 2º turno -->
   <section class="card panel runoff" id="segundo">
-    <div class="ph"><h2>Simulador do 2º turno</h2><span class="pt-sub">E se os votos dos demais candidatos forem para um lado ou para o outro?</span></div>
+    <div class="ph"><h2>Simulador do 2º turno</h2><span class="pt-sub" id="roSub">E se os votos dos demais candidatos forem para um lado ou para o outro?</span></div>
     <div id="roBody"><div class="skel" style="height:140px"></div></div>
   </section>
 
@@ -216,7 +218,7 @@
 
   <!-- Partidos -->
   <section class="card panel parties" id="partidos">
-    <div class="ph"><h2>Visão por partido</h2><span class="pt-sub">Câmara dos Deputados, governos estaduais e Senado</span></div>
+    <div class="ph"><h2>Visão por partido</h2><span class="pt-sub">Câmara dos Deputados, governos estaduais e Senado</span><span class="t1note">Definidos no 1º turno (4/10)</span></div>
     <div class="ptk" id="ptKpis"></div>
     <div class="ptgrid">
       <div>
@@ -231,7 +233,7 @@
 
   <!-- Deputados -->
   <section class="card panel deps" id="deputados">
-    <div class="ph"><h2>Deputados</h2><span class="pt-sub">Quem está entrando na Câmara e nas Assembleias</span></div>
+    <div class="ph"><h2>Deputados</h2><span class="pt-sub">Quem está entrando na Câmara e nas Assembleias</span><span class="t1note">Eleitos no 1º turno (4/10)</span></div>
     <div class="dep-ctl">
       <div class="seg" id="depTabs"></div>
       <div class="sel"><select id="depUf" aria-label="Estado"></select></div>
@@ -280,16 +282,16 @@
 </div>
 <button class="tk-open" id="tkOpen" hidden>Notícias ao vivo</button>
 
-<script src="br-map.js?v=26"></script>
-<script src="projection.js?v=26"></script>
-<script src="app.js?v=26"></script>
-<script src="parties.js?v=26"></script>
-<script src="candidate.js?v=26"></script>
-<script src="region.js?v=26"></script>
-<script src="analyst.js?v=26"></script>
-<script src="deputies.js?v=26"></script>
-<script src="runoff.js?v=26"></script>
-<script src="summary.js?v=26"></script>
-<script src="ticker.js?v=26"></script>
+<script src="br-map.js?v=27"></script>
+<script src="projection.js?v=27"></script>
+<script src="app.js?v=27"></script>
+<script src="parties.js?v=27"></script>
+<script src="candidate.js?v=27"></script>
+<script src="region.js?v=27"></script>
+<script src="analyst.js?v=27"></script>
+<script src="deputies.js?v=27"></script>
+<script src="runoff.js?v=27"></script>
+<script src="summary.js?v=27"></script>
+<script src="ticker.js?v=27"></script>
 </body>
 </html>

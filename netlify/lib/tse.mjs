@@ -1,10 +1,15 @@
 // Lógica compartilhada pelas funções do servidor (coleta, histórico e resumo).
 export const ORIGIN = "https://resultados.tse.jus.br/oficial/ele2026";
 export const UFS = ["ac","al","ap","am","ba","ce","df","es","go","ma","mt","ms","mg","pa","pb","pr","pe","pi","rj","rn","rs","ro","rr","sc","sp","se","to"];
-export const ELE = { 1: "6257", 3: "6259", 5: "6259", 6: "6259" };
+export const ELE = { 1: "6257", 3: "6259", 5: "6259", 6: "6259" };          // 1º turno (4/10)
+export const ELE2 = { 1: "6258", 3: "6260" };                                // 2º turno (25/10)
+export const T2_GOV = ["ac", "am", "df", "es", "rn", "to"];                   // estados com 2º turno para Governador
 const UA = { "User-Agent": "Mozilla/5.0 (compatible; CentralEleicoes/1.0)" };
 
-export const fileUrl = (cargo, uf) => `${ORIGIN}/${ELE[cargo]}/dados/${uf}/${uf}-c${String(cargo).padStart(4, "0")}-e${ELE[cargo].padStart(6, "0")}-u.json`;
+export const fileUrl = (cargo, uf, turno = 1) => {
+  const e = (turno === 2 ? ELE2 : ELE)[cargo];
+  return `${ORIGIN}/${e}/dados/${uf}/${uf}-c${String(cargo).padStart(4, "0")}-e${e.padStart(6, "0")}-u.json`;
+};
 export async function getJSON(url) {
   try {
     const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(15000) });

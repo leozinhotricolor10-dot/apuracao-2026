@@ -14,7 +14,7 @@ async function loadParties(force) {
   }
   for (const cargo of [3, 5, 6]) for (const [uf] of UFS) {
     if (cargo === 6 && useRes) continue;
-    if (cargo !== 6 && mapCargo === cargo && mapData[uf]) { pt.data[cargo][uf] = mapData[uf]; continue; }
+    if (cargo !== 6 && mapCargo === cargo && mapTurno === 1 && mapData[uf]) { pt.data[cargo][uf] = mapData[uf]; continue; }   // sempre 1º turno
     jobs.push(getJSON(`6259/dados/${uf}/${uf}-c${String(cargo).padStart(4, "0")}-e006259-u.json`).then(d => { pt.data[cargo][uf] = d; }).catch(() => {}));
   }
   await Promise.all(jobs);

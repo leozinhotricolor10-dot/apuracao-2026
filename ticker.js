@@ -4,26 +4,45 @@ try { tk.hidden = localStorage.getItem("ticker-off") === "1"; } catch {}
 
 function tickerItems() {
   const items = [];
-  // placar de Presidente (nacional)
-  const br = (typeof an !== "undefined" && an.br) || (state.cargo === 1 && state.uf === "br" ? last : null);
-  if (br) {
-    const [a, b] = candidatos(br);
-    if (a && b && +a.vap > 0) items.push({ k: "Presidente", t: `${title(a.nmu)} ${pct(num(a.pvapn), 1)} × ${title(b.nmu)} ${pct(num(b.pvapn), 1)} · ${pct(num(br.s.pstn), 1)} das urnas apuradas`, go: "resultado" });
+  // placar de Presidente (nacional), do turno que o site está mostrando
+  const t2 = state.turno === 2;
+  if (t2) {
+    const br2 = typeof an2 !== "undefined" ? an2.br : null, br1 = typeof an !== "undefined" ? an.br : null;
+    if (started(br2)) {
+      const [a, b] = candidatos(br2);
+      items.push({ k: "Presidente · 2º turno", t: `${title(a.nmu)} ${pct(num(a.pvapn), 1)} × ${title(b.nmu)} ${pct(num(b.pvapn), 1)} · ${pct(num(br2.s.pstn), 1)} das urnas apuradas`, go: "resultado" });
+    } else if (br1) {
+      const [a, b] = candidatos(br1);
+      if (a && b) items.push({ k: "2º turno", t: `${waitMsg().split(".")[0]}. No 1º turno: ${title(a.nmu)} ${pct(num(a.pvapn), 1)} × ${title(b.nmu)} ${pct(num(b.pvapn), 1)}`, go: "resultado" });
+    }
+    // governadores no 2º turno
+    if (typeof an2 !== "undefined") for (const uf of T2_GOV) {
+      const d = an2.gov[uf]; if (!started(d)) continue;
+      const [a, b] = candidatos(d);
+      if (a && b) items.push({ k: `Governador · ${uf.toUpperCase()}`, t: `${title(a.nmu)} ${pct(num(a.pvapn), 1)} × ${title(b.nmu)} ${pct(num(b.pvapn), 1)} · ${pct(num(d.s.pstn), 1)} apurado`, go: "resultado" });
+    }
+  } else {
+    const br = (typeof an !== "undefined" && an.br) || (state.cargo === 1 && state.uf === "br" ? last : null);
+    if (br) {
+      const [a, b] = candidatos(br);
+      if (a && b && +a.vap > 0) items.push({ k: "Presidente · 1º turno", t: `${title(a.nmu)} ${pct(num(a.pvapn), 1)} × ${title(b.nmu)} ${pct(num(b.pvapn), 1)} · ${pct(num(br.s.pstn), 1)} das urnas apuradas`, go: "resultado" });
+    }
   }
   // projeção
   if (pj.res && pj.list && state.cargo === 1 && state.uf === "br") {
     const v = verdict(pj.res, pj.list, "");
-    if (v.lvl !== "wait") items.push({ k: "Projeção", t: `${v.head} (${v.big} ${v.bigL})`, go: "proj" });
+    const off = v.badge === "Resultado oficial", sure = v.badge === "Já ganhou";
+    if (v.lvl !== "wait") items.push({ k: off ? "Resultado" : sure ? "Já ganhou" : "Projeção", t: off ? v.head : sure ? `${v.head} · garantido matematicamente pelos números da apuração` : `${v.head} (${v.big} ${v.bigL}) · estimativa, não é resultado oficial`, go: "proj" });
   }
   // manchetes do analista
-  if (typeof an !== "undefined" && an.out) an.out.filter(x => x.tag !== "Presidente").slice(0, 8).forEach(x => items.push({ k: x.tag, t: x.title, go: "analista" }));
+  if (typeof an !== "undefined" && an.out) an.out.filter(x => x.tag !== "Presidente" && x.tag !== "2º turno").slice(0, 8).forEach(x => items.push({ k: x.tag, t: x.title, go: "analista" }));
   // estados com vencedor definido no cargo atual
   if (typeof decidedUfs === "function") {
     const dec = decidedUfs();
     if (dec.length) items.push({ k: "Já ganhou", t: `${CARGO[state.cargo]}: ${dec.length} ${dec.length > 1 ? "estados já têm" : "estado já tem"} vencedor definido (${dec.slice(0, 6).map(([uf]) => uf.toUpperCase()).join(", ")}${dec.length > 6 ? "…" : ""})`, go: "mapa" });
   }
   // últimas atualizações
-  store.get(`f26-${state.cargo}`, []).slice(0, 5).forEach(e => items.push({ k: hhmm(e.m), t: e.t, go: "feed" }));
+  store.get(feedKey(), []).slice(0, 5).forEach(e => items.push({ k: hhmm(e.m), t: e.t, go: "feed" }));
   return items;
 }
 

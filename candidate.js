@@ -21,14 +21,14 @@ function openCand(sq) {
   if (state.cargo === 1 && state.uf !== "br") go(1, "br");
   state.focus = sq;
   document.body.classList.add("focus");
-  history.replaceState(null, "", `#${state.cargo}/${state.uf}/${sq}`);
+  history.replaceState(null, "", hashFor(sq));
   scrollTo({ top: 0, behavior: "instant" });
   renderCandView();
 }
 function closeCand() {
   state.focus = null;
   document.body.classList.remove("focus");
-  history.replaceState(null, "", `#${state.cargo}/${state.uf}`);
+  history.replaceState(null, "", hashFor());
   $("tip").style.opacity = 0;
   document.title = "Central das Eleições 2026 · Apuração ao vivo";
 }
@@ -135,7 +135,7 @@ function renderCandView() {
     ${isPres ? "" : `<div class="card panel"><h2 class="cv-h">Na disputa</h2><p class="cv-hint">${pct(num(last.s.pstn), 1)} das urnas apuradas em ${esc(place())}. Toque em outro candidato para ver os dados dele.</p>
       <div class="cv-race">${list.slice(0, 8).map((x, k) => `<button class="${x.sqcand === c.sqcand ? "me" : ""}" data-sq="${x.sqcand}" style="--col:${colorFor(x)}"><span>${k + 1}º ${esc(title(x.nmu))}</span><b class="num">${pct(num(x.pvapn), 1)}</b><i><em style="width:${num(x.pvapn)}%"></em></i></button>`).join("")}</div></div>`}
   </section>
-  ${isPres ? `<section class="card panel" style="margin-top:14px"><h2 class="cv-h">Todos os estados</h2><p class="cv-cmp" id="cvCmp"></p><div class="stwrap" id="cvTable"></div><p class="cv-hint" style="margin:10px 0 0">2022: percentual do partido no 1º turno, sobre os votos válidos (resultado final). 2026: apuração em andamento. Partidos que se fundiram somam os antecessores (PRD = PTB + Patriota; Solidariedade inclui o PROS; Podemos inclui o PSC).</p></section>` : ""}`;
+  ${isPres ? `<section class="card panel" style="margin-top:14px"><h2 class="cv-h">Todos os estados</h2><p class="cv-cmp" id="cvCmp"></p><div class="stwrap" id="cvTable"></div><p class="cv-hint" style="margin:10px 0 0">${isT2d(last) ? "No 2º turno, a comparação é com o próprio candidato no 1º turno de 2026 (resultado final, votos válidos). " : ""}2022: percentual do partido no 1º turno, sobre os votos válidos (resultado final). 2026: apuração em andamento. Partidos que se fundiram somam os antecessores (PRD = PTB + Patriota; Solidariedade inclui o PROS; Podemos inclui o PSC).</p></section>` : ""}`;
 
   bindCv();
   renderCandEvolution(c, col);
@@ -192,17 +192,21 @@ function renderCandStates(c, col, ufs) {
   }).join("");
 
   // tabela com comparação ao partido em 2022
-  const sg = c.partido;
-  ufs.forEach(x => { x.p22 = share2022(1, x.uf, sg); x.dv = x.p22 == null ? null : x.p - x.p22; });
-  const nat22 = share2022(1, "br", sg), withPast = ufs.filter(x => x.dv != null);
+  const sg = c.partido, t2 = isT2d(last);
+  // no 2º turno, a base de comparação é o próprio candidato no 1º turno de 2026; no 1º turno, o partido em 2022
+  const t1 = uf => { const d = typeof an === "undefined" ? null : uf === "br" ? an.br : an.ufs[uf]; const y = d && candidatos(d).find(z => z.sqcand === c.sqcand); return y ? num(y.pvapn) : null; };
+  const base = uf => t2 ? t1(uf) : share2022(1, uf, sg);
+  ufs.forEach(x => { x.p22 = base(x.uf); x.dv = x.p22 == null ? null : x.p - x.p22; });
+  const nat22 = base("br"), withPast = ufs.filter(x => x.dv != null);
   const up = withPast.filter(x => x.dv > 0.05).length, down = withPast.filter(x => x.dv < -0.05).length;
   const rows = [...ufs].sort(cvSort === "dv" ? (a, b) => (b.dv ?? -999) - (a.dv ?? -999) : cvSort === "dva" ? (a, b) => (a.dv ?? 999) - (b.dv ?? 999) : (a, b) => b.p - a.p);
   const nm1 = esc(title(c.nmu).split(" ")[0]);
-  $("cvCmp").innerHTML = !P22 ? "Carregando comparação com 2022…"
+  $("cvCmp").innerHTML = t2 ? (nat22 == null ? "Carregando o 1º turno para comparação…" : `Comparado ao <b>1º turno</b> (${pct(nat22, 1)} no Brasil): ${nm1} está <b class="up-t">acima em ${up}</b> e <b class="down-t">abaixo em ${down}</b> ${up + down === 1 ? "estado" : "estados"}. No Brasil: ${deltaHtml(num(c.pvapn), nat22)}`)
+    : !P22 ? "Carregando comparação com 2022…"
     : nat22 == null ? `O ${esc(sg)} não teve candidato a Presidente em 2022, então não há base de comparação por estado.`
     : `Comparado ao <b>${esc(sg)} no 1º turno de 2022</b> (${pct(nat22, 1)} no Brasil): ${nm1} está <b class="up-t">acima em ${up}</b> e <b class="down-t">abaixo em ${down}</b> ${up + down === 1 ? "estado" : "estados"}. No Brasil: ${deltaHtml(num(c.pvapn), nat22)}`;
   const thS = (k, t) => `<th class="n sortable ${cvSort === k || (k === "dv" && cvSort === "dva") ? "on" : ""}" data-s="${k}">${t}</th>`;
-  $("cvTable").innerHTML = `<table class="st"><thead><tr><th>Estado</th><th class="n">Urnas</th>${thS("p", `${nm1} % ${cvSort === "p" ? "▾" : ""}`)}<th class="n">${esc(sg)} em 2022</th>${thS(cvSort === "dv" ? "dva" : "dv", `Variação ${cvSort === "dv" ? "▾" : cvSort === "dva" ? "▴" : ""}`)}<th class="n">Votos</th><th class="n">Posição</th><th>Líder no estado</th></tr></thead><tbody>
+  $("cvTable").innerHTML = `<table class="st"><thead><tr><th>Estado</th><th class="n">Urnas</th>${thS("p", `${nm1} % ${cvSort === "p" ? "▾" : ""}`)}<th class="n">${t2 ? "1º turno" : `${esc(sg)} em 2022`}</th>${thS(cvSort === "dv" ? "dva" : "dv", `Variação ${cvSort === "dv" ? "▾" : cvSort === "dva" ? "▴" : ""}`)}<th class="n">Votos</th><th class="n">Posição</th><th>Líder no estado</th></tr></thead><tbody>
     ${rows.map(x => `<tr data-uf="${x.uf}"><td><b>${esc(UFNAME[x.uf])}</b></td><td class="n num">${pct(x.pst, 1)}</td><td class="n num" style="color:${col};font-weight:700">${pct(x.p, 1)}</td>
       <td class="n num">${x.p22 == null ? "–" : pct(x.p22, 1)}</td><td class="n">${deltaHtml(x.p, x.p22)}</td>
       <td class="n num">${fmt(x.c.vap)}</td><td class="n num">${x.rank}º</td><td>${x.rank === 1 ? `<b style="color:${col}">ele mesmo</b>` : esc(title(x.leader.nmu))}</td></tr>`).join("")}
@@ -211,7 +215,7 @@ function renderCandStates(c, col, ufs) {
 }
 
 function renderCandEvolution(c, col) {
-  const h = store.get(`h26-${state.cargo}-${state.uf}`, []).filter(s => s.c && s.c[c.sqcand] !== undefined);
+  const h = store.get(histKey(), []).filter(s => s.c && s.c[c.sqcand] !== undefined);
   const svg = $("cvEvo");
   if (h.length < 2) {
     svg.innerHTML = `<text x="200" y="85" text-anchor="middle" style="font-size:13px;fill:var(--muted)">O gráfico se forma conforme a apuração avança.</text><text x="200" y="105" text-anchor="middle" style="font-size:11.5px;fill:var(--faint)">Atual: ${pct(num(c.pvapn))}</text>`;

@@ -1,7 +1,7 @@
-// Entrega o histórico (/api/hist/1-br) e o resumo (/api/resumo/dep6) guardados pela coleta automática.
+// Entrega o histórico (/api/hist/1-br, /api/hist/t2-1-br) e o resumo (/api/resumo/dep6) guardados pela coleta automática.
 import { getStore } from "@netlify/blobs";
 
-const HIST = /^[135]-(br|[a-z]{2})$/;
+const HIST = /^(t2-)?[135]-(br|[a-z]{2})$/;   // 1º turno: 1-br; 2º turno: t2-1-br
 const RESUMO = /^dep6$/;
 
 export default async (req) => {

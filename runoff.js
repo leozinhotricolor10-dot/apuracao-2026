@@ -51,13 +51,48 @@ function roSimulate(mode = ro.mode, x = ro.x, over = ro.over) {
   return { A, B, others: F.others, rows, nat, mode };
 }
 
+/* ---------- simulação × resultado real do 2º turno ----------
+   Compara nos mesmos votos: em cada estado com 2º turno já apurado, a simulação usa o peso
+   dos votos válidos já apurados ali; assim o ritmo desigual da apuração não distorce a comparação. */
+const RO_NAMES = { "2022": "Como em 2022", meio: "Meio a meio", custom: "Meu cenário" };
+function roReal() {
+  if (typeof an2 === "undefined" || !started(an2.br)) return null;
+  const F = roFinalists(); if (!F) return null;
+  const modes = ["2022", "meio", ...(ro.mode === "custom" ? ["custom"] : [])];
+  const sims = Object.fromEntries(modes.map(m => [m, roSimulate(m)]));
+  if (!sims["2022"]) return null;
+  let W = 0, vA = 0, used = 0, zzIn = false; const acc = Object.fromEntries(modes.map(m => [m, 0]));
+  for (const row of sims["2022"].rows) {
+    const x2 = row.uf === "zz" ? an2.zz : an2.ufs[row.uf]; if (!started(x2)) continue;
+    const a2 = candIn(x2, F.A), b2 = candIn(x2, F.B); if (!a2 || !b2) continue;
+    const w = +a2.vap + +b2.vap; if (!w) continue;
+    W += w; vA += +a2.vap; if (row.uf === "zz") zzIn = true; else used++;
+    for (const m of modes) { const r = sims[m].rows.find(x => x.uf === row.uf); if (r) acc[m] += r.A2 / (r.A2 + r.B2) * 100 * w; }
+  }
+  if (!W) return null;
+  const real = vA / W * 100;
+  const rows = modes.map(m => ({ m, A: acc[m] / W, err: acc[m] / W - real })).sort((p, q) => Math.abs(p.err) - Math.abs(q.err));
+  return { A: F.A, B: F.B, real, rows, best: rows[0].m, used, zzIn, pst: num(an2.br.s.pstn), nat: { A: num((candIn(an2.br, F.A) || {}).pvapn || 0), B: num((candIn(an2.br, F.B) || {}).pvapn || 0) } };
+}
+function roRealHtml(R) {
+  if (!R) return "";
+  const nA = esc(title(R.A.nmu)), nB = esc(title(R.B.nmu));
+  return `<div class="ro-real">
+    <div class="ro-rh"><b>Resultado real do 2º turno</b><span>${pct(R.pst, 1)} das urnas apuradas · ${nA} <b class="num" style="color:${colorFor(R.A)}">${pct(R.nat.A, 1)}</b> × ${nB} <b class="num" style="color:${colorFor(R.B)}">${pct(R.nat.B, 1)}</b></span></div>
+    <table class="ro-rt"><thead><tr><th>Cenário</th><th class="n">${nA} na simulação</th><th class="n">Real</th><th class="n">Diferença</th></tr></thead><tbody>
+      ${R.rows.map(x => `<tr${x.m === R.best ? ' class="best"' : ""}><td>${RO_NAMES[x.m]}${x.m === R.best ? ' <span class="tag win">mais perto</span>' : ""}</td><td class="n num">${pct(x.A, 1)}</td><td class="n num">${pct(R.real, 1)}</td><td class="n num">${pp(x.err)}</td></tr>`).join("")}
+    </tbody></table>
+    <p class="feednote">Comparação nos mesmos votos: só ${R.used === 27 ? "os 27 estados" : `os ${R.used} estados`}${R.zzIn ? " e o exterior" : ""} com votos do 2º turno já apurados, cada um com o peso dos votos já contados. Muda conforme a apuração avança.</p>
+  </div>`;
+}
+
 /* ---------- interface ---------- */
 function renderRunoff() {
   const box = $("roBody"); if (!box) return;
   if (!B22 || !an.br || Object.keys(an.ufs).length < 27) { box.innerHTML = `<div class="skel" style="height:140px"></div>`; return; }
   const S = roSimulate(); if (!S) { box.innerHTML = `<p class="cv-hint">Aguardando dados do 1º turno.</p>`; return; }
   const { A, B, nat } = S;
-  const r1 = pj.res && state.cargo === 1 && state.uf === "br" ? pj.res : null;
+  const r1 = pj.res && !pj.res.t2 && state.cargo === 1 && state.uf === "br" ? pj.res : null;
   if (num(A.pvapn) > 50 && (!r1 || r1.pFirst > 0.5)) { box.innerHTML = `<p class="cv-hint">${esc(title(A.nmu))} tem mais de 50% dos válidos: pelos números atuais, não haveria 2º turno.</p>`; return; }
   const colA = colorFor(A), colB = colorFor(B), win = nat.A2 >= nat.B2 ? A : B;
   const st = { A: 0, B: 0 }; S.rows.filter(r => r.uf !== "zz").forEach(r => r.A2 >= r.B2 ? st.A++ : st.B++);
@@ -76,6 +111,7 @@ function renderRunoff() {
       ${side(B, nat.B2, "r")}
     </div>
     <p class="ro-head"><b style="color:${colorFor(win)}">${esc(title(win.nmu))}</b> venceria com ${pct(Math.max(nat.A2, nat.B2), 1)} dos válidos neste cenário, à frente em ${win === A ? st.A : st.B} de 27 estados.</p>
+    ${roRealHtml(roReal())}
     <div class="ro-be">
       <div><span>Para ${esc(title(B.nmu))} virar</span><b class="num" style="color:${colB}">${nat.beB > 1 ? "impossível" : pct(nat.beB * 100, 0)}</b><em>dos votos dos demais candidatos</em></div>
       <div><span>${esc(title(A.nmu))} precisa de</span><b class="num" style="color:${colA}">${pct(nat.beA * 100, 0)}</b><em>dos votos dos demais candidatos</em></div>
@@ -105,6 +141,7 @@ function renderRunoff() {
     setFill(p, aw ? colA : colB, Math.min(100, 40 + m * 2.5));
   });
   bindRunoff(S);
+  if ($("roSub")) $("roSub").textContent = roReal() ? "Simulação feita com o 1º turno, comparada ao resultado real do 2º turno" : "E se os votos dos demais candidatos forem para um lado ou para o outro?";
 }
 
 function bindRunoff(S) {
@@ -127,6 +164,14 @@ function bindRunoff(S) {
 function runoffInsights(out) {
   if (!B22 || !B22.t2 || Object.keys(an.ufs).length < 27) return;
   const F = roFinalists(); if (!F || num(F.A.pvapn) > 50) return;
+  const R = roReal();
+  if (R) {   // com o 2º turno em apuração, o comentário passa a ser simulação × real
+    const b = R.rows[0];
+    out.push({ cat: "pres", tag: "Simulação × real", score: 70, col: colorFor(R.A),
+      title: `O cenário "${RO_NAMES[b.m]}" é o que chega mais perto do resultado real até agora`,
+      body: `Nos votos já apurados do 2º turno, ${title(R.A.nmu)} tem ${pct(R.real, 1)} dos válidos. ${R.rows.map(x => `"${RO_NAMES[x.m]}" previa ${pct(x.A, 1)} (${pp(x.err)})`).join("; ")}. A simulação usa só o 1º turno e a divisão de votos de 2022; não é pesquisa.` });
+    return;
+  }
   const S22 = roSimulate("2022"), Sm = roSimulate("meio"); if (!S22) return;
   const { A, B, nat } = S22, nA = title(A.nmu), nB = title(B.nmu);
   out.push({ cat: "pres", tag: "2º turno · simulação", score: 90, col: colorFor(B),

@@ -25,7 +25,8 @@ function stratum(d, fallbackShares) {
   return { counted: Object.fromEntries(list.map(x => [x.sqcand, +x.vap])), vv, esnt, est, R: esnt * turnout * vrate, pst: num(d.s.pstn) / 100, shares, hasData: vv > 0 };
 }
 
-function runProjection(strata, cands, { vagas = 1, majority = false, N = PJ_N_NAT, seed = 7 } = {}) {
+/* t2: 2º turno (2 candidatos, vence quem tiver mais da metade dos válidos; a garantia é a mesma de 1 vaga: A > B + não apurados) */
+function runProjection(strata, cands, { vagas = 1, majority = false, N = PJ_N_NAT, seed = 7, t2 = false } = {}) {
   const randn = makeRandn(rng(seed));
   const ids = cands.map(c => c.sqcand), K = ids.length;
   const counted = ids.map(id => strata.reduce((s, st) => s + (st.counted[id] || 0), 0));
@@ -76,7 +77,7 @@ function runProjection(strata, cands, { vagas = 1, majority = false, N = PJ_N_NA
     });
   }
   const pairList = Object.entries(pairs).map(([k, v]) => ({ ids: k.split("|"), p: v / N })).sort((a, b) => b.p - a.p);
-  return { out, pFirst: first / N, pairs: pairList, g, pst: pstAll, vagas, majority };
+  return { out, pFirst: first / N, pairs: pairList, g, pst: pstAll, vagas, majority, t2 };
 }
 
 const TIERS = [[.99, "certain", "Praticamente certo"], [.9, "likely", "Muito provável"], [.7, "lean", "Provável"], [0, "toss", "Indefinido"]];
@@ -87,10 +88,17 @@ function verdict(r, list, scope) {
   const join = a => a.length > 1 ? a.slice(0, -1).join(", ") + " e " + a[a.length - 1] : a[0];
   const eleitos = list.filter(c => c.e === "s");
   if (eleitos.length)
-    return { lvl: "done", badge: "Resultado oficial", big: "✓", bigL: "confirmado pelo TSE", head: `${join(eleitos.map(c => title(c.nmu)))} ${eleitos.length > 1 ? "estão eleitos" : "está eleito"}${scope}`, sub: "Resultado confirmado pelo TSE." };
+    return { lvl: "done", badge: "Resultado oficial", big: "✓", bigL: "confirmado pelo TSE", head: `${join(eleitos.map(c => title(c.nmu)))} ${eleitos.length > 1 ? "estão eleitos" : "está eleito"}${scope}${r.t2 ? " no 2º turno" : ""}`, sub: "Resultado confirmado pelo TSE." };
   if (r.pst * 100 < PJ_MIN_PST || !r.out[0] || r.out[0].mean <= 0)
     return { lvl: "wait", badge: "Projeção", big: "…", bigL: "aguardando dados", head: "Projeção disponível em instantes", sub: `Precisamos de pelo menos ${PJ_MIN_PST}% das urnas apuradas para projetar com segurança.` };
   const top = r.out[0], A = nm(top.c.sqcand), rng = x => `${pct(x.mean, 1)} (entre ${pct(x.lo, 1)} e ${pct(x.hi, 1)})`;
+  if (r.t2) {
+    const where = scope || " a eleição", B = r.out[1];
+    if (r.g.safe.has(top.c.sqcand))
+      return { lvl: "done", badge: "Já ganhou", big: "✓", bigL: "garantido", head: `${A} já ganhou${where}`, sub: `Garantido matematicamente: mesmo que todos os ${fmt(r.g.M)} eleitores das seções ainda não apuradas votassem no adversário, ${A} continua com mais da metade dos votos válidos. O TSE ainda vai oficializar o resultado.` };
+    const t = tier(top.pTop);
+    return { lvl: t[1], badge: t[2], big: pctP(top.pTop), bigL: "de chance de vitória", head: t[1] === "toss" ? `Disputa indefinida${scope}` : `${A} deve vencer${where}`, sub: `Projeção final: ${A} ${rng(top)}${B ? ` · ${nm(B.c.sqcand)} ${pct(B.mean, 1)}` : ""}. Estimativa, não é resultado oficial.` };
+  }
   if (r.majority) {
     if (r.g.winner)
       return { lvl: "done", badge: "Já ganhou", big: "✓", bigL: "garantido", head: `${nm(r.g.winner)} já ganhou${scope} no 1º turno`, sub: "Garantido matematicamente: mesmo que todos os votos que faltam fossem para os adversários, ninguém tira mais essa vitória." };
@@ -119,7 +127,8 @@ function verdict(r, list, scope) {
 function updateProjection() {
   if (!last) return;
   if (last.multi) { computeUfProj(); pj.res = null; $("proj").hidden = true; updateWonBtn(); if (state.decidedOnly) { paintDecided(); renderDecidedTable(); } if (typeof renderRegionCards === "function") renderRegionCards(); if (typeof renderRegionRaces === "function") renderRegionRaces(last); return; }
-  const cargo = state.cargo, list = candidatos(last), cands = list.slice(0, 10);
+  if (waiting(last)) { pj.res = null; $("proj").hidden = true; computeUfProj(); updateWonBtn(); return; }   // 2º turno ainda sem votos
+  const cargo = state.cargo, list = candidatos(last), cands = list.slice(0, 10), t2 = isT2d(last);
   let strata = [stratum(last)], opts, scope = "";
   if (cargo === 1 && state.uf === "br") {
     const ufs = UFS.map(([uf]) => mapData[uf]).filter(Boolean);
@@ -128,13 +137,13 @@ function updateProjection() {
       strata = ufs.map(d => stratum(d, fb));
       if (zzData) strata.push(stratum(zzData, fb));
     }
-    opts = { majority: true, vagas: 1 };
+    opts = { majority: !t2, vagas: 1, t2 };
   } else if (cargo === 1 && isRegion(state.uf)) {
     const ds = regionUfs(state.uf).map(uf => mapData[uf]).filter(Boolean);
     if (mapCargo === 1 && ds.length) strata = ds.map(d => stratum(d));
-    opts = { majority: false, vagas: 1 }; scope = ` no ${REGKEY[state.uf]}`;
-  } else if (cargo === 1) { opts = { majority: false, vagas: 1 }; scope = ` em ${UFNAME[state.uf]}`; }
-  else opts = { majority: cargo === 3, vagas: +last.carg[0].nv || 1 };
+    opts = { majority: false, vagas: 1, t2 }; scope = ` no ${REGKEY[state.uf]}`;
+  } else if (cargo === 1) { opts = { majority: false, vagas: 1, t2 }; scope = ` em ${UFNAME[state.uf]}`; }
+  else opts = { majority: cargo === 3 && !t2, vagas: +last.carg[0].nv || 1, t2 };
   pj.res = runProjection(strata, cands, opts);
   pj.list = list; pj.scope = scope;
   computeUfProj();
@@ -148,15 +157,15 @@ function computeUfProj() {
   for (const [uf, d] of Object.entries(mapData)) {
     const list = candidatos(d);
     if (!list[0] || +list[0].vap === 0) continue;
-    const vagas = state.cargo === 5 ? +d.carg[0].nv || 1 : 1;
-    const r = runProjection([stratum(d)], list.slice(0, 8), { vagas, majority: state.cargo === 3, N: PJ_N_UF, seed: uf.charCodeAt(0) * 31 + uf.charCodeAt(1) });
+    const vagas = state.cargo === 5 ? +d.carg[0].nv || 1 : 1, t2 = isT2d(d), maj = state.cargo === 3 && !t2;
+    const r = runProjection([stratum(d)], list.slice(0, 8), { vagas, majority: maj, t2, N: PJ_N_UF, seed: uf.charCodeAt(0) * 31 + uf.charCodeAt(1) });
     const lead = r.out[0];
-    const guaranteed = state.cargo === 3 ? !!r.g.winner : r.out.slice(0, vagas).every(w => r.g.safe.has(w.c.sqcand));
-    const p = state.cargo === 3 ? Math.max(r.pFirst, 1 - r.pFirst) : Math.min(...r.out.slice(0, vagas).map(w => w.pTop));
+    const guaranteed = maj ? !!r.g.winner : r.out.slice(0, vagas).every(w => r.g.safe.has(w.c.sqcand));
+    const p = maj ? Math.max(r.pFirst, 1 - r.pFirst) : Math.min(...r.out.slice(0, vagas).map(w => w.pTop));
     ufProj[uf] = { r, lead, guaranteed, p, list };
     if (guaranteed) {
       const who = r.out.slice(0, vagas).map(w => title(w.c.nmu));
-      ev.push({ id: `${uf}-g-${who.join("+")}`, m: mins(d.hg), k: "--ok", t: `${UFNAME[uf]}: ${who.join(" e ")} já ${vagas > 1 ? "garantiram as vagas" : state.cargo === 3 ? "ganhou no 1º turno" : "ganhou no estado"}`, b: "Garantido matematicamente pelos números da apuração." });
+      ev.push({ id: `${uf}-g-${who.join("+")}`, m: mins(d.hg), k: "--ok", t: `${UFNAME[uf]}: ${who.join(" e ")} já ${vagas > 1 ? "garantiram as vagas" : t2 ? (state.cargo === 3 ? "ganhou o 2º turno" : "ganhou no estado no 2º turno") : state.cargo === 3 ? "ganhou no 1º turno" : "ganhou no estado"}`, b: "Garantido matematicamente pelos números da apuração." });
     }
   }
   const v = pj.res && pj.list ? verdict(pj.res, pj.list, pj.scope) : null;
@@ -251,7 +260,7 @@ function showProjTip(uf, x, y) {
   const vagas = P.r.vagas;
   tip.innerHTML = `<h4>${esc(UFNAME[uf])} · projeção</h4><div class="s">${pct(P.r.pst * 100, 1)} das urnas · ${P.guaranteed ? "✓ já decidido" : tier(P.p)[2].toLowerCase()}</div>` +
     P.r.out.slice(0, 3).map(o => `<div class="r" style="--col:${colorFor(o.c)}"><span>${esc(title(o.c.nmu))}</span><b class="num">${pct(o.mean, 1)}</b><div class="b"><div style="width:${o.mean}%"></div></div></div>`).join("") +
-    `<div class="s" style="margin:8px 0 0">${state.cargo === 3 ? `Chance de 1º turno decidido: ${pctP(P.r.pFirst)}` : `Chance de ${esc(title(P.lead.c.nmu))} ${vagas > 1 ? "ficar com vaga" : "vencer"}: ${pctP(P.lead.pTop)}`}</div>`;
+    `<div class="s" style="margin:8px 0 0">${P.r.majority ? `Chance de 1º turno decidido: ${pctP(P.r.pFirst)}` : `Chance de ${esc(title(P.lead.c.nmu))} ${vagas > 1 ? "ficar com vaga" : "vencer"}: ${pctP(P.lead.pTop)}`}</div>`;
   tip.style.opacity = 1;
   tip.style.left = Math.min(x + 16, innerWidth - 266) + "px";
   tip.style.top = Math.min(y + 16, innerHeight - tip.offsetHeight - 10) + "px";
@@ -265,7 +274,7 @@ function decidedInfo(uf) {
   if (eleitos.length) return { how: "Oficial TSE", winners: eleitos, d };
   const P = ufProj[uf];
   if (!P || !P.guaranteed) return null;
-  const sqs = state.cargo === 3 ? [P.r.g.winner] : P.r.out.slice(0, vagas).map(o => o.c.sqcand);
+  const sqs = P.r.majority ? [P.r.g.winner] : P.r.out.slice(0, vagas).map(o => o.c.sqcand);
   return { how: "Garantido", winners: sqs.map(sq => list.find(c => c.sqcand === sq)).filter(Boolean), d };
 }
 function decidedUfs() { return UFS.map(([uf]) => [uf, decidedInfo(uf)]).filter(([, x]) => x); }

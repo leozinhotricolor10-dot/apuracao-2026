@@ -1,8 +1,11 @@
 /* Meu analista: comentários gerados por regras a partir dos números do TSE.
    Cada frase vem de uma conta sobre os dados; nada é inventado.
-   Base de comparação: base-2022.json e partidos-2022.json (TSE Dados Abertos, 1º turno de 2022). */
+   Base de comparação: base-2022.json e partidos-2022.json (TSE Dados Abertos, 2022).
+   No 2º turno: compara com o 1º turno de 2026 (estado por estado) e com o 2º turno de 2022 (por partido). */
 let B22 = null;
-const an = { br: null, ufs: {}, stamp: 0, loading: false, filter: "all", visible: false };
+const an = { br: null, ufs: {}, stamp: 0, loading: false, filter: "all", visible: false };   // 1º turno (Presidente)
+const an2 = { br: null, ufs: {}, zz: null, gov: {}, gov1: {} };   // 2º turno (Presidente e Governador) + Governador no 1º turno dos mesmos estados
+const started = d => !!d && +d.s.st > 0;
 fetch("base-2022.json").then(r => r.json()).then(d => { B22 = d; renderAnalyst(); }).catch(() => {});
 
 const REV22 = {};   // sigla de 2022 -> sigla atual (fusões)
@@ -18,15 +21,37 @@ async function loadAnalyst(force) {
   if (an.loading || (!force && Date.now() - an.stamp < 60000)) return renderAnalyst();
   an.loading = true; an.stamp = Date.now();
   try {
-    const jobs = [getJSON(fileFor(1, "br")).then(d => an.br = d)];
-    for (const [uf] of UFS) {
-      if (mapCargo === 1 && mapData[uf]) an.ufs[uf] = mapData[uf];
-      else jobs.push(getJSON(fileFor(1, uf)).then(d => an.ufs[uf] = d).catch(() => {}));
+    const jobs = [];
+    // 1º turno: já encerrado; depois de completo, não baixa de novo
+    if (!an.t1done) {
+      jobs.push(getJSON(fileFor(1, "br", 1)).then(d => an.br = d).catch(() => {}));
+      for (const [uf] of UFS) {
+        if (mapCargo === 1 && mapTurno === 1 && mapData[uf]) an.ufs[uf] = mapData[uf];
+        else jobs.push(getJSON(fileFor(1, uf, 1)).then(d => an.ufs[uf] = d).catch(() => {}));
+      }
+      jobs.push(getJSON(fileFor(1, "zz", 1)).then(d => an.zz = d).catch(() => {}));
+      for (const uf of T2_GOV) jobs.push(getJSON(fileFor(3, uf, 1)).then(d => an2.gov1[uf] = d).catch(() => {}));
     }
-    jobs.push(getJSON(fileFor(1, "zz")).then(d => an.zz = d).catch(() => {}));
+    // 2º turno
+    jobs.push(getJSON(fileFor(1, "br", 2)).then(d => an2.br = d).catch(() => {}));
+    for (const [uf] of UFS) {
+      if (mapCargo === 1 && mapTurno === 2 && mapData[uf]) an2.ufs[uf] = mapData[uf];
+      else jobs.push(getJSON(fileFor(1, uf, 2)).then(d => an2.ufs[uf] = d).catch(() => {}));
+    }
+    jobs.push(getJSON(fileFor(1, "zz", 2)).then(d => an2.zz = d).catch(() => {}));
+    for (const uf of T2_GOV) {
+      if (mapCargo === 3 && mapTurno === 2 && mapData[uf]) an2.gov[uf] = mapData[uf];
+      else jobs.push(getJSON(fileFor(3, uf, 2)).then(d => an2.gov[uf] = d).catch(() => {}));
+    }
     await Promise.all(jobs);
-    const agg = nationalFromStates(an.ufs, an.zz);
-    if (agg && stamp(agg) > stamp(an.br)) an.br = agg;
+    if (!an.t1done) {
+      const agg = nationalFromStates(an.ufs, an.zz);
+      if (agg && (!an.br || an.br.tf !== "s") && stamp(agg) > stamp(an.br)) an.br = agg;
+      an.t1done = !!an.br && an.br.tf === "s" && Object.keys(an.ufs).length === 27 && !!an.zz && Object.keys(an2.gov1).length === T2_GOV.length;
+    }
+    // Brasil do 2º turno: soma dos estados quando o arquivo nacional atrasa
+    const agg2 = nationalFromStates(an2.ufs, an2.zz);
+    if (agg2 && an2.br && an2.br.tf !== "s" && stamp(agg2) > stamp(an2.br)) an2.br = agg2;
   } catch {}
   an.loading = false;
   if (typeof loadParties === "function") loadParties().catch?.(() => {});
@@ -53,7 +78,7 @@ function presInsights(out) {
   const base = `com ${p1(pst)} das urnas apuradas`;
 
   // 1. placar + projeção
-  let r = pj.res && state.cargo === 1 && state.uf === "br" ? pj.res : null;
+  let r = pj.res && !pj.res.t2 && state.cargo === 1 && state.uf === "br" ? pj.res : null;
   if (!r && Object.keys(an.ufs).length === 27) r = runProjection(Object.values(an.ufs).map(x => stratum(x)), list.slice(0, 10), { majority: true, vagas: 1, N: 1200 });
   const v = r ? verdict(r, list, "") : null;
   out.push({ cat: "pres", tag: "Presidente", score: 100, col: colorFor(a),
@@ -199,15 +224,144 @@ function senInsights(out) {
     body: `${shortName(tight.list[tight.nv - 1])} (${tight.list[tight.nv - 1].partido}) tem ${p1(num(tight.list[tight.nv - 1].pvapn))} e ${shortName(tight.list[tight.nv])} (${tight.list[tight.nv].partido}), ${p1(num(tight.list[tight.nv].pvapn))}: só ${pp(tight.m).replace("+", "")} separam a vaga, com ${p1(tight.pst)} apurado.` });
 }
 
+/* ---------- 2º turno: comparações com o 1º turno e com o 2º turno de 2022 ---------- */
+const candIn = (d, c) => d && candidatos(d).find(x => x.n === c.n);   // mesmo candidato nos dois turnos (pelo número)
+const vs = dv => Math.abs(dv) < 0.05 ? "mantém" : dv > 0 ? "ganha" : "perde";
+// 2º turno de 2022 por partido (base-2022.json → t2[uf].pt2 = % do PT; o restante foi do PL)
+const t2share22 = (uf, sg) => { const t = B22 && B22.t2 && B22.t2[uf]; return !t ? null : sg === "PT" ? t.pt2 : sg === "PL" ? 100 - t.pt2 : null; };
+
+function t2Waiting(out) {
+  const d1 = an.br; if (!d1) return;
+  const [a, b] = candidatos(d1); if (!a || !b) return;
+  out.push({ cat: "pres", tag: "2º turno", score: 100, col: colorFor(a),
+    title: brDate() <= T2_DAY && brNow() < POLLS_CLOSE ? "Apuração do 2º turno começa às 17h" : "Aguardando os primeiros números do 2º turno",
+    body: `No 1º turno, ${shortName(a)} (${a.partido}) teve ${p1(num(a.pvapn))} dos válidos e ${shortName(b)} (${b.partido}), ${p1(num(b.pvapn))}: diferença de ${fmt(a.vap - b.vap)} votos. Os comentários do 2º turno aparecem aqui assim que o TSE publicar os primeiros números. Também há 2º turno para Governador em ${T2_GOV.map(u => u.toUpperCase()).join(", ")}.` });
+}
+
+function t2PresInsights(out) {
+  const d = an2.br; if (!started(d)) return;
+  const list = candidatos(d), [a, b] = list; if (!a || !b) return;
+  const pst = num(d.s.pstn), base = `com ${p1(pst)} das urnas apuradas`, A = shortName(a), B = shortName(b);
+  // 1. placar + projeção (estimativa)
+  let r = pj.res && pj.res.t2 && state.cargo === 1 && state.uf === "br" ? pj.res : null;
+  if (!r && Object.keys(an2.ufs).length === 27) {
+    const fb = Object.fromEntries(list.map(c => [c.sqcand, +c.vap / (+d.v.vv || 1)]));
+    r = runProjection([...Object.values(an2.ufs), an2.zz].filter(Boolean).map(x => stratum(x, fb)), list, { t2: true, N: 1200 });
+  }
+  const v = r ? verdict(r, list, "") : null, oa = r && r.out.find(o => o.c.sqcand === a.sqcand);
+  out.push({ cat: "pres", tag: "2º turno", score: 100, col: colorFor(a),
+    title: !v || v.lvl === "wait" ? `${A} lidera o 2º turno` : v.lvl === "done" ? v.head : `Projeção (estimativa): ${v.head}`,
+    body: `${A} tem ${p1(num(a.pvapn))} dos votos válidos, ${fmt(a.vap - b.vap)} votos à frente de ${B} (${p1(num(b.pvapn))}), ${base}.` + (oa && v && v.lvl !== "wait" ? ` A projeção do site (estimativa, não é resultado oficial) indica ${A} terminando em torno de ${p1(oa.mean)}.` : "") });
+
+  const d1 = an.br; if (!d1) return;
+  // 2. Brasil: quanto cada finalista ganhou do 1º para o 2º turno
+  for (const c of [a, b]) {
+    const c1 = candIn(d1, c); if (!c1) continue;
+    const dv = num(c.pvapn) - num(c1.pvapn);
+    out.push({ cat: "pres", tag: "1º × 2º turno", score: 74 + Math.abs(dv) / 4, col: colorFor(c),
+      title: `${shortName(c)} ${vs(dv)} ${Math.abs(dv) < 0.05 ? "o percentual" : pp(Math.abs(dv)).replace("+", "")} em relação ao 1º turno`,
+      body: `No 1º turno, ${shortName(c)} teve ${p1(num(c1.pvapn))} dos válidos (${fmt(c1.vap)} votos). No 2º turno, tem ${p1(num(c.pvapn))} (${fmt(c.vap)} votos até agora, ${base}). Os votos absolutos só podem ser comparados no fim da apuração.` });
+  }
+  // 3. estado por estado: onde cada finalista mais ganha e menos ganha entre os turnos
+  const rows = [];
+  for (const [uf] of UFS) {
+    const x2 = an2.ufs[uf], x1 = an.ufs[uf]; if (!started(x2) || !x1 || num(x2.s.pstn) < 10) continue;
+    for (const c of [a, b]) {
+      const c2 = candIn(x2, c), c1 = candIn(x1, c); if (!c2 || !c1) continue;
+      rows.push({ uf, c, now: num(c2.pvapn), then: num(c1.pvapn), dv: num(c2.pvapn) - num(c1.pvapn), v2: +c2.vap, v1: +c1.vap, pst: num(x2.s.pstn) });
+    }
+  }
+  for (const c of [a, b]) {
+    const mine = rows.filter(x => x.c === c).sort((p, q) => q.dv - p.dv);
+    if (mine.length < 3) continue;
+    const hi = mine[0], lo = mine[mine.length - 1];
+    out.push({ cat: "pres", tag: "1º × 2º turno", score: 66 + hi.dv / 3, col: colorFor(c),
+      title: `${shortName(c)} ${vs(hi.dv)} mais em ${UFNAME[hi.uf]}: ${pp(hi.dv)} sobre o 1º turno`,
+      body: `Maiores variações de ${shortName(c)} entre os turnos: ${mine.slice(0, 3).map(x => `${UFNAME[x.uf]} ${p1(x.then)} → ${p1(x.now)} (${pp(x.dv)})`).join("; ")}. A menor é em ${UFNAME[lo.uf]}: ${p1(lo.then)} → ${p1(lo.now)} (${pp(lo.dv)}). Em ${UFNAME[hi.uf]}, já são ${fmt(hi.v2)} votos, contra ${fmt(hi.v1)} no 1º turno, com ${p1(hi.pst)} apurado. Estados com pelo menos 10% das urnas apuradas.` });
+  }
+  // 4. estados que mudaram de lado entre os turnos (entre os dois finalistas)
+  const flips = [], checked = [];
+  for (const [uf] of UFS) {
+    const x2 = an2.ufs[uf], x1 = an.ufs[uf]; if (!started(x2) || !x1 || num(x2.s.pstn) < 20) continue;
+    const a1 = candIn(x1, a), b1 = candIn(x1, b), a2 = candIn(x2, a), b2 = candIn(x2, b); if (!a1 || !b1 || !a2 || !b2) continue;
+    checked.push(uf);
+    const w1 = +a1.vap >= +b1.vap ? a : b, w2 = +a2.vap >= +b2.vap ? a : b;
+    if (w1 !== w2) flips.push({ uf, w1, w2, p1: num((w1 === a ? a1 : b1).pvapn), q1: num((w1 === a ? b1 : a1).pvapn), p2: num((w2 === a ? a2 : b2).pvapn), pst: num(x2.s.pstn), ap: B22 && B22.turnout[uf] ? B22.turnout[uf].aptos : 0 });
+  }
+  if (flips.length) {
+    flips.sort((p, q) => q.ap - p.ap);
+    out.push({ cat: "pres", tag: "Virada entre turnos", score: 84 + flips.length, col: colorFor(flips[0].w2),
+      title: flips.length === 1 ? `${UFNAME[flips[0].uf]} muda de lado entre o 1º e o 2º turno` : `${flips.length} estados mudam de lado entre o 1º e o 2º turno`,
+      body: flips.slice(0, 4).map(x => `${UFNAME[x.uf]}: no 1º turno, ${shortName(x.w1)} ficou à frente de ${shortName(x.w2)} (${p1(x.p1)} a ${p1(x.q1)}); agora ${shortName(x.w2)} lidera com ${p1(x.p2)}, com ${p1(x.pst)} apurado`).join(". ") + "." });
+  } else if (checked.length >= 20) out.push({ cat: "pres", tag: "Virada entre turnos", score: 50, col: "var(--c10)",
+    title: "Nenhum estado mudou de lado entre os turnos até agora",
+    body: `Nos ${checked.length} estados com pelo menos 20% das urnas apuradas, quem estava à frente entre ${A} e ${B} no 1º turno continua à frente no 2º.` });
+  // 5. comparação com o 2º turno de 2022 (por partido)
+  if (!B22) return;
+  for (const c of [a, b]) {
+    const n22 = t2share22("br", c.partido); if (n22 == null) continue;
+    const dv = num(c.pvapn) - n22;
+    const st = UFS.map(([uf]) => { const x = an2.ufs[uf], s22 = t2share22(uf, c.partido), cc = candIn(x, c); return started(x) && num(x.s.pstn) >= 30 && s22 != null && cc ? { uf, dv: num(cc.pvapn) - s22, now: num(cc.pvapn), then: s22 } : null; }).filter(Boolean).sort((p, q) => Math.abs(q.dv) - Math.abs(p.dv));
+    out.push({ cat: "pres", tag: "2º turno de 2022", score: 60 + Math.abs(dv), col: colorFor(c),
+      title: `${shortName(c)} está ${Math.abs(dv) < 0.5 ? "no mesmo patamar do" : dv > 0 ? "acima do" : "abaixo do"} ${c.partido} no 2º turno de 2022`,
+      body: `No 2º turno de 2022, o ${c.partido} teve ${p1(n22)} dos válidos; ${shortName(c)} tem ${p1(num(c.pvapn))} agora (${pp(dv)}), ${base}.` + (st[0] ? ` Maior diferença entre os estados com 30% ou mais apurado: ${UFNAME[st[0].uf]}, ${p1(st[0].then)} em 2022 → ${p1(st[0].now)} agora (${pp(st[0].dv)}).` : "") + " A comparação ainda muda: os estados não são apurados no mesmo ritmo." });
+  }
+}
+
+function t2TurnoutInsights(out) {
+  const d2 = an2.br, d1 = an.br; if (!started(d2) || !d1) return;
+  const pc2 = num(d2.e.pcn), pc1 = num(d1.e.pcn), dv = pc2 - pc1;
+  const regs = Object.entries(REGIOES).map(([n, ufs]) => {
+    let c2 = 0, e2 = 0, c1 = 0, e1 = 0;
+    for (const uf of ufs) { const x = an2.ufs[uf], y = an.ufs[uf]; if (started(x) && y) { c2 += +x.e.c; e2 += +x.e.est; c1 += +y.e.c; e1 += +y.e.est; } }
+    return e2 && e1 ? { n, dv: c2 / e2 * 100 - c1 / e1 * 100, now: c2 / e2 * 100 } : null;
+  }).filter(Boolean).sort((p, q) => Math.abs(q.dv) - Math.abs(p.dv));
+  out.push({ cat: "comp", tag: "Comparecimento", score: 48 + Math.abs(dv) * 4, col: "var(--c3)",
+    title: Math.abs(dv) < 0.5 ? `Comparecimento estável no 2º turno: ${p1(pc2)}, perto dos ${p1(pc1)} do 1º` : `Comparecimento ${dv > 0 ? "sobe" : "cai"} para ${p1(pc2)} no 2º turno (${pp(dv)} sobre o 1º turno)`,
+    body: `Nas seções já apuradas do 2º turno, ${p1(pc2)} dos eleitores votaram (abstenção de ${p1(num(d2.e.pan))}); no 1º turno foram ${p1(pc1)}.${regs[0] && Math.abs(regs[0].dv) >= 0.5 ? ` A maior mudança é no ${regs[0].n}: ${pp(regs[0].dv)} (${p1(regs[0].now)}).` : ""}` });
+}
+
+function t2GovInsights(out) {
+  const races = T2_GOV.map(uf => ({ uf, d: an2.gov[uf], d1: an2.gov1[uf] })).filter(x => started(x.d));
+  if (!races.length) return;
+  const rows = races.map(x => {
+    const list = candidatos(x.d), [a, b] = list;
+    const r = runProjection([stratum(x.d)], list, { t2: true, N: 300, seed: 5 });
+    const won = list.find(c => c.e === "s") || (r.g.safe.has(a.sqcand) ? a : null);
+    return { ...x, list, a, b, won, pst: num(x.d.s.pstn), a1: candIn(x.d1, a), b1: candIn(x.d1, b) };
+  }).filter(x => x.a && x.b);
+  if (!rows.length) return;
+  const won = rows.filter(x => x.won);
+  out.push({ cat: "gov", tag: "Governos · 2º turno", score: 82, col: partyColor(rows[0].a.partido),
+    title: `Governadores no 2º turno: ${won.length} de ${T2_GOV.length} estados já definidos`,
+    body: rows.map(x => `${x.uf.toUpperCase()}: ${shortName(x.a)} (${x.a.partido}) ${p1(num(x.a.pvapn))} × ${shortName(x.b)} (${x.b.partido}) ${p1(num(x.b.pvapn))}, ${p1(x.pst)} apurado${x.won ? ` · ${shortName(x.won)} ${x.won.e === "s" ? "eleito" : "já ganhou (garantido matematicamente)"}` : ""}`).join("; ") + "." });
+  const flips = rows.filter(x => x.a1 && x.b1 && +x.b1.vap > +x.a1.vap && x.pst >= 20);
+  if (flips.length) out.push({ cat: "gov", tag: "Virada entre turnos", score: 78, col: partyColor(flips[0].a.partido),
+    title: flips.length === 1 ? `${UFNAME[flips[0].uf]}: quem ficou em 2º no 1º turno lidera o 2º turno` : `${flips.length} estados: o 2º colocado do 1º turno lidera agora`,
+    body: flips.map(x => `${UFNAME[x.uf]}: ${shortName(x.a)} teve ${p1(num(x.a1.pvapn))} no 1º turno, contra ${p1(num(x.b1.pvapn))} de ${shortName(x.b)}; agora tem ${p1(num(x.a.pvapn))}, com ${p1(x.pst)} apurado`).join(". ") + "." });
+  const tight = rows.filter(x => x.pst >= 10 && !x.won).map(x => ({ ...x, m: num(x.a.pvapn) - num(x.b.pvapn) })).sort((p, q) => p.m - q.m)[0];
+  if (tight && tight.m < 5) out.push({ cat: "gov", tag: "Disputa apertada", score: 72 - tight.m, col: "var(--c4)",
+    title: `${UFNAME[tight.uf]} tem o 2º turno mais apertado para governador`,
+    body: `${shortName(tight.a)} (${tight.a.partido}) tem ${p1(num(tight.a.pvapn))} e ${shortName(tight.b)} (${tight.b.partido}), ${p1(num(tight.b.pvapn))}: diferença de ${fmt(tight.a.vap - tight.b.vap)} votos, com ${p1(tight.pst)} das urnas apuradas.` });
+}
+
 /* ---------- interface ---------- */
 const CATS = { all: "Tudo", pres: "Presidente", camara: "Câmara", gov: "Governos", sen: "Senado", comp: "Comparecimento" };
 function renderAnalyst() {
   const box = $("anList"); if (!box) return;
-  const out = [];
-  try { presInsights(out); } catch (e) { console.warn(e); }
-  try { turnoutInsights(out); } catch (e) { console.warn(e); }
+  const out = [], t2 = state.turno === 2, on2 = started(an2.br);
+  // no modo 2º turno, os comentários do 1º turno de Presidente/Governos ficam abaixo, marcados como "1º turno"
+  const t1 = f => { const o = []; f(o); o.forEach(x => { if (t2) { x.score -= 45; x.tag += " · 1º turno"; } out.push(x); }); };
+  if (t2 && !on2) { try { t2Waiting(out); } catch (e) { console.warn(e); } }
+  if (t2) {
+    try { t2PresInsights(out); } catch (e) { console.warn(e); }
+    try { t2TurnoutInsights(out); } catch (e) { console.warn(e); }
+    try { t2GovInsights(out); } catch (e) { console.warn(e); }
+  }
+  if (!t2 || !on2) { try { t1(presInsights); } catch (e) { console.warn(e); } }
+  try { t1(turnoutInsights); } catch (e) { console.warn(e); }
   try { camaraInsights(out); } catch (e) { console.warn(e); }
-  try { govInsights(out); } catch (e) { console.warn(e); }
+  try { t1(govInsights); } catch (e) { console.warn(e); }
   try { senInsights(out); } catch (e) { console.warn(e); }
   try { if (typeof depInsights === "function") depInsights(out); } catch (e) { console.warn(e); }
   try { if (typeof runoffInsights === "function") runoffInsights(out); } catch (e) { console.warn(e); }
@@ -216,7 +370,9 @@ function renderAnalyst() {
   if (typeof renderRunoff === "function") renderRunoff();
   if (typeof renderSummary === "function") renderSummary();
   const shown = an.filter === "all" ? out : out.filter(x => x.cat === an.filter);
-  $("anMeta").textContent = an.br ? `Com os números do TSE das ${an.br.hg.slice(0, 5)} · ${p1(num(an.br.s.pstn))} das urnas apuradas para Presidente` : "Lendo os números…";
+  $("anMeta").textContent = t2 && on2 ? `2º turno · números do TSE das ${an2.br.hg.slice(0, 5)} · ${p1(num(an2.br.s.pstn))} das urnas apuradas para Presidente`
+    : t2 ? "2º turno: aguardando os primeiros números do TSE. Abaixo, comentários sobre o 1º turno."
+    : an.br ? `1º turno · números do TSE das ${an.br.hg.slice(0, 5)} · ${p1(num(an.br.s.pstn))} das urnas apuradas para Presidente` : "Lendo os números…";
   $("anChips").innerHTML = Object.entries(CATS).map(([k, t]) => `<button data-k="${k}" aria-pressed="${an.filter === k}">${t}${k !== "all" ? ` <b>${out.filter(x => x.cat === k).length}</b>` : ""}</button>`).join("");
   if (!shown.length) { box.innerHTML = `<p class="an-empty">${an.br ? "Ainda sem comentários para este tema; aguardando mais dados." : "O analista está lendo os números…"}</p>`; return; }
   const [lead, ...rest] = shown;

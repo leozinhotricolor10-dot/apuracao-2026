@@ -1,7 +1,7 @@
 /* Visão por região: cartões das 5 regiões e a lista de disputas de uma região (Governador/Senador). */
 
 function regionLeaders(key) {
-  return regionUfs(key).map(uf => {
+  return playUfs(key).map(uf => {
     const d = mapCargo === state.cargo && mapData[uf]; if (!d) return null;
     const list = candidatos(d), nv = state.cargo === 5 ? +d.carg[0].nv || 1 : 1;
     const P = ufProj[uf], dec = typeof decidedInfo === "function" ? decidedInfo(uf) : null;
@@ -12,7 +12,7 @@ function regionLeaders(key) {
 function statusOf(x) {
   if (x.dec) return { cls: "won", t: x.dec.how === "Oficial TSE" ? "✓ Eleito" : "✓ Já ganhou" };
   if (!x.P) return { cls: "", t: "Lidera" };
-  if (state.cargo === 3 && x.P.r.pFirst < 0.5) return { cls: "run", t: `2º turno provável (${pctP(1 - x.P.r.pFirst)})` };
+  if (x.P.r.majority && x.P.r.pFirst < 0.5) return { cls: "run", t: `2º turno provável (${pctP(1 - x.P.r.pFirst)})` };
   const t = tier(x.P.p);
   return { cls: t[1], t: t[2] };
 }
@@ -20,11 +20,18 @@ function statusOf(x) {
 /* lista de disputas (Governador/Senador numa região) */
 function renderRegionRaces(d) {
   const key = d.region, rows = regionLeaders(key);
-  $("resTitle").textContent = `${CARGO[state.cargo]} · ${REGKEY[key]}`;
-  $("cands").innerHTML = `<p class="rr-hint">${rows.length} estados · ${pct(num(d.s.pstn), 1)} das urnas apuradas na região. Toque num estado para ver a disputa completa.</p>` +
+  $("resTitle").textContent = `${CARGO[state.cargo]} · ${regName(key)}${isT2d(d) ? " · 2º turno" : ""}`;
+  const where = key === T2_KEY ? "nestes estados" : "na região";
+  $("cands").innerHTML = `<p class="rr-hint">${rows.length} ${rows.length === 1 ? "estado" : "estados"} · ${waiting(d) ? "apuração começa às 17h" : `${pct(num(d.s.pstn), 1)} das urnas apuradas ${where}`}. Toque num estado para ver a disputa completa.</p>` +
     rows.map(x => {
       const s = statusOf(x), c0 = x.top[0];
-      if (!c0) return `<button class="race" data-uf="${x.uf}"><div class="ruf">${x.uf.toUpperCase()}</div><div class="rnm"><b>${esc(UFNAME[x.uf])}</b><span>aguardando votos</span></div></button>`;
+      if (!c0) {
+        const all = x.list.slice(0, 2);   // 2º turno antes da apuração: mostra os dois finalistas
+        if (!all.length) return `<button class="race" data-uf="${x.uf}"><div class="ruf">${x.uf.toUpperCase()}</div><div class="rnm"><b>${esc(UFNAME[x.uf])}</b><span>aguardando votos</span></div></button>`;
+        return `<button class="race" data-uf="${x.uf}"><div class="ruf">${x.uf.toUpperCase()}</div>
+          <div class="rph">${all.map(c => `<span style="--col:${colorFor(c)}">${esc(initials(c.nmu))}<img src="${photo(state.cargo, x.uf, c.sqcand)}" alt="" loading="lazy" onerror="this.remove()"></span>`).join("")}</div>
+          <div class="rnm"><b>${all.map(c => esc(title(c.nmu))).join(" × ")}</b><span>${all.map(c => esc(c.partido)).join(" × ")} · aguardando votos</span></div></button>`;
+      }
       return `<button class="race" data-uf="${x.uf}" style="--col:${colorFor(c0)}">
         <div class="ruf">${x.uf.toUpperCase()}</div>
         <div class="rph">${x.top.map(c => `<span style="--col:${colorFor(c)}">${esc(initials(c.nmu))}<img src="${photo(state.cargo, x.uf, c.sqcand)}" alt="" loading="lazy" onerror="this.remove()"></span>`).join("")}</div>
@@ -41,8 +48,9 @@ function renderRegionCards() {
   const cargo = state.cargo;
   $("regTitle").textContent = `Visão por região · ${CARGO[cargo]}`;
   box.innerHTML = Object.entries(REGKEY).map(([key, name]) => {
-    const b = REG_BBOX[key], pad = 14, ufs = regionUfs(key), rows = regionLeaders(key);
-    const shapes = ufs.map(uf => {
+    const b = REG_BBOX[key], pad = 14, ufs = playUfs(key), rows = regionLeaders(key);
+    if (!ufs.length) return `<div class="rcard off"><div class="rh"><b>${name}</b></div><div class="rbody"><div class="rsub">Nenhum estado da região tem 2º turno para Governador.</div></div></div>`;
+    const shapes = regionUfs(key).map(uf => {
       const x = rows.find(r => r.uf === uf), c = x && x.top[0];
       return `<path d="${BR_MAP.paths[uf]}" fill="${c ? colorFor(c) : "var(--land)"}" stroke="var(--surface)" stroke-width="${2 / 1}" vector-effect="non-scaling-stroke"/>`;
     }).join("");
@@ -67,16 +75,16 @@ function renderRegionCards() {
       <div class="rpb"><div style="width:${pst}%"></div></div>
       <svg viewBox="${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}" aria-hidden="true">${shapes}</svg>
       <div class="rbody">${body}</div>
-      <div class="rf"><span>Comparec. <b class="num">${agg ? pct(num(agg.e.pcn), 1) : "–"}</b></span><span class="${won ? "ok" : ""}">✓ ${won}/${ufs.length} definidos</span></div>
+      <div class="rf"><span>Comparec. <b class="num">${agg && !waiting(agg) ? pct(num(agg.e.pcn), 1) : "–"}</b></span><span class="${won ? "ok" : ""}">✓ ${won}/${ufs.length} definidos</span></div>
       <div class="rgo">${state.uf === key ? "Mostrando esta região" : "Ver só esta região ›"}</div>
     </button>`;
   }).join("");
 }
 
 $("regCards").addEventListener("click", e => {
-  const b = e.target.closest(".rcard"); if (!b) return;
+  const b = e.target.closest(".rcard[data-r]"); if (!b) return;
   const key = b.dataset.r;
-  go(state.cargo, state.uf === key ? (state.cargo === 1 ? "br" : "sp") : key);
+  go(state.cargo, state.uf === key ? defaultUf(state.cargo, state.turno) : key);
   if (state.uf === key) $("top").scrollIntoView({ behavior: "smooth" });
 });
 renderRegionCards();

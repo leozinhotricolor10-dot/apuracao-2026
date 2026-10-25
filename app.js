@@ -2,7 +2,11 @@
 // Na Netlify os dados passam pelo intermediário com cache (/api/tse); em outros lugares, direto do TSE.
 const USE_PROXY = !/^(localhost|127\.0\.0\.1|\[::1\])$|github\.io$/.test(location.hostname) && location.protocol === "https:";
 const BASE = USE_PROXY ? "/api/tse/oficial/ele2026" : "https://resultados.tse.jus.br/oficial/ele2026";
-const ELE = { 1: "6257", 3: "6259", 5: "6259" };
+/* códigos das eleições no TSE (comum/config/ele-c.json): 6257/6259 = 1º turno (4/10); 6258/6260 = 2º turno (25/10) */
+const ELE_T = { 1: { 1: "6257", 3: "6259", 5: "6259" }, 2: { 1: "6258", 3: "6260" } };
+const ELE = ELE_T[1];
+const T2_GOV = ["ac", "am", "df", "es", "rn", "to"];   // estados com 2º turno para Governador (abrangência da eleição 6260)
+const T2_DAY = "2026-10-25";
 const CARGO = { 1: "Presidente", 3: "Governador", 5: "Senador" };
 const REFRESH = 30, MAP_REFRESH = 60;
 const POLLS_CLOSE = 17 * 60;   // 17h de Brasília, em minutos
@@ -41,21 +45,33 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-let state = { cargo: 1, uf: "br", showAll: false, auto: true, view: "map", zoom: 1, center: null };
+let state = { cargo: 1, uf: "br", turno: 2, dt: 2, showAll: false, auto: true, view: "map", zoom: 1, center: null };
 let colorOf = {};
 let last = null, natList = null, prevVotes = {}, countdown = REFRESH, loading = false;
-let mapData = {}, mapStamp = 0, mapCargo = null;
+let mapData = {}, mapStamp = 0, mapCargo = null, mapTurno = null;
 
 /* ================= dados ================= */
 async function getJSON(path) {
   // com o intermediário, o navegador confere com o CDN e recebe 304 (sem baixar nada) quando o arquivo não mudou
   const r = USE_PROXY ? await fetch(`${BASE}/${path}`, { cache: "no-cache" })
                       : await fetch(`${BASE}/${path}?t=${Math.floor(Date.now() / 10000)}`);
-  if (!r.ok) throw new Error(r.status === 404 ? "O TSE ainda não publicou dados para esta seleção." : `O TSE respondeu ${r.status}.`);
+  if (!r.ok) throw new Error(r.status === 404 ? (/^(6258|6260)\//.test(path) ? waitMsg() : "O TSE ainda não publicou dados para esta seleção.") : `O TSE respondeu ${r.status}.`);
   return r.json();
 }
-const fileFor = (cargo, uf) => `${ELE[cargo]}/dados/${uf}/${uf}-c${String(cargo).padStart(4,"0")}-e${ELE[cargo].padStart(6,"0")}-u.json`;
-const photo = (cargo, uf, sq) => `${BASE}/${ELE[cargo]}/fotos/${cargo === 1 ? "br" : uf}/${sq}.jpeg`;
+const eleOf = (cargo, turno) => (ELE_T[turno] || {})[cargo] || ELE_T[1][cargo];
+const fileFor = (cargo, uf, turno = state.turno) => { const e = eleOf(cargo, turno); return `${e}/dados/${uf}/${uf}-c${String(cargo).padStart(4,"0")}-e${e.padStart(6,"0")}-u.json`; };
+// fotos: as do 1º turno servem para os dois turnos (os finalistas são os mesmos candidatos)
+const photo = (cargo, uf, sq) => `${BASE}/${ELE_T[1][cargo]}/fotos/${cargo === 1 ? "br" : uf}/${sq}.jpeg`;
+
+/* ================= turnos ================= */
+const isT2d = d => !!d && String(d.t) === "2";              // o arquivo do TSE diz de qual turno é
+const waiting = d => isT2d(d) && !(+d.s.st > 0);           // 2º turno publicado, mas sem seções apuradas
+const inPlay = uf => !(state.turno === 2 && state.cargo === 3) || T2_GOV.includes(uf);
+const brNow = () => { const [h, m] = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()).split(":").map(Number); return h * 60 + m; };
+const brDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const waitMsg = () => brDate() <= T2_DAY && brNow() < POLLS_CLOSE
+  ? "Aguardando o início da apuração do 2º turno às 17h (horário de Brasília). Os números aparecem aqui automaticamente."
+  : "As urnas do 2º turno fecharam às 17h. Aguardando os primeiros números do TSE.";
 
 function candidatos(d) {
   const out = [];
@@ -83,15 +99,17 @@ function setFill(el, fill, p = 100) {
 }
 const stripe = v => `<pattern id="t${v}" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" ${CM ? `fill="color-mix(in srgb, var(${v}) 35%, var(--land))"` : `fill="var(${v})" fill-opacity=".35"`}/><rect width="4" height="9" fill="var(${v})"/></pattern>`;
 const colorFor = c => `var(${colorVar(c)})`;
-const place = () => state.uf === "br" ? "Brasil" : REGKEY[state.uf] || UFNAME[state.uf];
+const place = () => state.uf === "br" ? "Brasil" : regName(state.uf) || UFNAME[state.uf];
 
 /* ================= histórico local (variação e evolução) ================= */
-const histKey = () => `h26-${state.cargo}-${state.uf}`;
+// 1º turno mantém as chaves antigas (h26-1-br); o 2º turno usa o prefixo t2- (h26-t2-1-br)
+const histId = () => `${state.dt === 2 ? "t2-" : ""}${state.cargo}-${state.uf}`;
+const histKey = () => `h26-${histId()}`;
 /* histórico guardado no servidor (igual para todos os visitantes), mesclado com o local */
 const histSynced = {};
 async function syncHist() {
-  const key = `${state.cargo}-${state.uf}`;
-  if (!USE_PROXY || !/^[135]-(br|[a-z]{2})$/.test(key) || Date.now() - (histSynced[key] || 0) < 60000) return;
+  const key = histId();
+  if (!USE_PROXY || !/^(t2-)?[135]-(br|[a-z]{2})$/.test(key) || Date.now() - (histSynced[key] || 0) < 60000) return;
   histSynced[key] = Date.now();
   try {
     const r = await fetch(`/api/hist/${key}`, { cache: "no-cache" });
@@ -105,6 +123,7 @@ async function syncHist() {
 }
 function pushHist(d, list) {
   const h = store.get(histKey(), []);
+  if (!(+d.s.st > 0)) return h;   // arquivo "zerado" (antes da apuração): não entra no gráfico
   if (h.length && h[h.length - 1].hg === d.hg) return h;
   h.push({ hg: d.hg, m: mins(d.hg), pst: num(d.s.pstn), c: Object.fromEntries(list.slice(0, 12).map(c => [c.sqcand, num(c.pvapn)])) });
   while (h.length > 400) h.shift();
@@ -128,7 +147,7 @@ function renderKPIs(d) {
   set("k3", pct(num(v.pvvcn)), num(v.pvvcn), `${fmt(v.vv)} votos`);
   set("k4", pct(num(e.pan)), num(e.pan), `${fmt(e.a)} eleitores`);
   $("hg").textContent = d.hg.slice(0, 5);
-  $("eyebrow").textContent = `Eleições 2026 · 1º turno · ${place()}`;
+  $("eyebrow").textContent = `Eleições 2026 · ${isT2d(d) ? 2 : 1}º turno · ${place()}`;
 }
 
 /* ================= resultado ================= */
@@ -251,15 +270,16 @@ function zoomBy(f) {
 }
 
 async function loadStates(force) {
-  const cargo = state.cargo;
-  if (mapCargo !== cargo) { mapData = {}; mapCargo = cargo; force = true; paintStates(); }
+  const cargo = state.cargo, turno = state.turno;
+  if (mapCargo !== cargo || mapTurno !== turno) { mapData = {}; mapCargo = cargo; mapTurno = turno; zzData = null; force = true; paintStates(); }
   if (!force && Date.now() - mapStamp < MAP_REFRESH * 1000) return paintStates();
   mapStamp = Date.now();
-  const res = await Promise.allSettled(UFS.map(([uf]) => getJSON(fileFor(cargo, uf)).then(d => [uf, d])));
-  if (cargo !== state.cargo) return;
+  const res = await Promise.allSettled(UFS.filter(([uf]) => inPlay(uf)).map(([uf]) => getJSON(fileFor(cargo, uf)).then(d => [uf, d])));
+  if (cargo !== state.cargo || turno !== state.turno) return;
   const prev = { ...mapData };
   res.forEach(r => { if (r.status === "fulfilled") mapData[r.value[0]] = r.value[1]; });
   if (cargo === 1) { try { zzData = await getJSON(fileFor(1, "zz")); } catch {} }
+  if (turno !== state.turno) return;
   feedFromStates(prev, mapData);
   paintStates();
   updateProjection();
@@ -267,7 +287,7 @@ async function loadStates(force) {
   // se os estados já estão mais novos que o arquivo nacional, refaz o placar com a soma
   if (cargo === 1 && state.uf === "br" && last && !last.synthetic) {
     const agg = nationalFromStates(mapData, zzData);
-    if (agg && stamp(agg) > stamp(last)) load();
+    if (agg && last.tf !== "s" && stamp(agg) > stamp(last)) load();
   }
 }
 
@@ -281,12 +301,13 @@ function stateInfo(uf) {
 
 function paintStates() {
   const lead = {};
-  let tight = 0, none = 0;
+  let tight = 0, none = 0, off = 0;
   for (const [uf] of UFS) {
     const path = document.querySelector(`#map path[data-uf="${uf}"]`);
     const s = stateInfo(uf);
     let fill = "var(--land)", fillP = 100, txt = "";
-    const inScope = !isRegion(state.uf) || regionUfs(state.uf).includes(uf);
+    const inScope = (!isRegion(state.uf) || regionUfs(state.uf).includes(uf)) && inPlay(uf);
+    if (!inPlay(uf)) off++;
     if (s && s.has && inScope) {
       const v = colorVar(s.top);
       if (s.margin < TIGHT && s.second) { fill = `url(#t${v})`; tight++; }
@@ -296,7 +317,7 @@ function paintStates() {
       lead[k] = lead[k] || { n: 0, nome: state.cargo === 1 ? title(s.top.nmu) : k, col: colorFor(s.top) };
       lead[k].n++;
     } else if (inScope) { none++; if (s) txt = "0%"; }
-    setFill(path, fill, fillP); path.classList.toggle("dim", isRegion(state.uf) && !regionUfs(state.uf).includes(uf));
+    setFill(path, fill, fillP); path.classList.toggle("dim", !inPlay(uf) || (isRegion(state.uf) && !regionUfs(state.uf).includes(uf)));
     path.classList.toggle("sel", state.uf === uf);
     const lp = $("lp-" + uf), cp = $("cp-" + uf), lb = $("lb-" + uf);
     if (lp) lp.textContent = txt;
@@ -309,7 +330,8 @@ function paintStates() {
   $("legTitle").textContent = state.cargo === 1 ? "Quem lidera em cada estado" : "Partido à frente";
   $("legend").innerHTML = items.map(x => `<span><i style="background:${x.col}"></i>${esc(x.nome)}<em>${x.n}</em></span>`).join("") +
     `<span><i class="tight"></i>Disputa acirrada<em>${tight}</em></span>` +
-    `<span><i style="background:var(--land)"></i>Sem resultado<em>${none}</em></span>`;
+    `<span><i style="background:var(--land)"></i>${Object.keys(mapData).length && Object.values(mapData).every(waiting) ? "Aguardando a apuração" : "Sem resultado"}<em>${none}</em></span>` +
+    (off ? `<span title="Nestes estados o governador foi eleito no 1º turno"><i style="background:var(--land);opacity:.4"></i>Decidido no 1º turno<em>${off}</em></span>` : "");
   renderRegions();
   renderStateTable();
   if (mapMode === "proj") paintProjection();
@@ -319,7 +341,12 @@ function paintStates() {
 }
 
 function showTip(uf, x, y) {
-  const s = stateInfo(uf), tip = $("tip");
+  const s = inPlay(uf) ? stateInfo(uf) : null, tip = $("tip");
+  if (!inPlay(uf)) {
+    tip.innerHTML = `<h4>${esc(UFNAME[uf])}</h4><div class="s">Governador eleito no 1º turno. Toque para ver o resultado.</div>`;
+    tip.style.opacity = 1; tip.style.left = Math.min(x + 16, innerWidth - 266) + "px"; tip.style.top = Math.min(y + 16, innerHeight - tip.offsetHeight - 10) + "px";
+    return;
+  }
   if (!s) { tip.style.opacity = 0; return; }
   tip.innerHTML = `<h4>${esc(UFNAME[uf])}</h4><div class="s">${pct(s.pst)} das urnas apuradas${s.has && s.margin < TIGHT && s.second ? " · disputa acirrada" : ""}</div>` +
     s.list.slice(0, 3).map(c => `<div class="r" style="--col:${colorFor(c)}"><span>${esc(title(c.nmu))}</span><b class="num">${c.pvap}%</b><div class="b"><div style="width:${num(c.pvapn)}%"></div></div></div>`).join("");
@@ -351,6 +378,7 @@ function renderStateTable() {
   const pctOf = (s, c) => { const x = c && s.list.find(y => y.sqcand === c.sqcand); return x ? num(x.pvapn) : null; };
   const rowsFor = ufs => ufs.map(uf => {
     const s = stateInfo(uf);
+    if (!inPlay(uf)) return `<tr data-uf="${uf}"><td><b>${uf.toUpperCase()}</b></td><td colspan="4" style="color:var(--muted)">Decidido no 1º turno</td></tr>`;
     if (!s) return `<tr data-uf="${uf}"><td>${uf.toUpperCase()}</td><td class="n" colspan="4">–</td></tr>`;
     if (A && B) {
       const pa = pctOf(s, A), pb = pctOf(s, B);
@@ -368,14 +396,15 @@ function renderStateTable() {
   const head = A && B
     ? `<tr><th>Estado</th><th class="n">Urnas</th><th class="n" title="${esc(title(A.nmu))}">${esc(short(A))} %</th><th class="n" title="${esc(title(B.nmu))}">${esc(short(B))} %</th><th>Líder</th></tr>`
     : `<tr><th>Estado</th><th class="n">Urnas</th><th>Líder</th><th class="n">%</th><th>Partido</th></tr>`;
-  $("stTable").innerHTML = `<table class="st"><thead>${head}</thead><tbody>${rowsFor(BIG_UFS)}</tbody></table>` +
+  const firstUfs = state.turno === 2 && state.cargo === 3 ? T2_GOV : BIG_UFS;
+  $("stTable").innerHTML = `<table class="st"><thead>${head}</thead><tbody>${rowsFor(firstUfs)}</tbody></table>` +
     (A && B ? `<div class="feednote">A = ${esc(title(A.nmu))} · B = ${esc(title(B.nmu))}</div>` : "");
-  const all = [...UFS].sort((a, b) => a[1].localeCompare(b[1])).map(([uf]) => uf);
+  const all = [...UFS].sort((a, b) => (inPlay(b[0]) - inPlay(a[0])) || a[1].localeCompare(b[1])).map(([uf]) => uf);
   $("listView").innerHTML = `<table class="st"><thead>${head}</thead><tbody>${rowsFor(all)}</tbody></table>`;
 }
 
 /* ================= feed de atualizações (gerado dos dados) ================= */
-const feedKey = () => `f26-${state.cargo}`;
+const feedKey = () => `f26-${state.turno === 2 ? "t2-" : ""}${state.cargo}`;
 let feedOpen = false;
 function addEvents(evts) {
   if (!evts.length) return;
@@ -433,7 +462,10 @@ function renderFeed(fresh) {
 /* ================= regiões ================= */
 const REGKEY = { "r-n": "Norte", "r-ne": "Nordeste", "r-co": "Centro-Oeste", "r-se": "Sudeste", "r-s": "Sul" };
 const isRegion = uf => String(uf).startsWith("r-");
-const regionUfs = key => REGIOES[REGKEY[key]] || [];
+const T2_KEY = "r-t2", T2_NAME = "Estados com 2º turno";   // "região" com os 6 estados que têm 2º turno para Governador
+const regName = key => key === T2_KEY ? T2_NAME : REGKEY[key];
+const regionUfs = key => key === T2_KEY ? T2_GOV : REGIOES[REGKEY[key]] || [];
+const playUfs = key => regionUfs(key).filter(inPlay);
 const REG_BBOX = (() => {
   const box = {};
   for (const [key, name] of Object.entries(REGKEY)) {
@@ -453,8 +485,8 @@ function zoomToRegion(key) {
   applyZoom();
 }
 function aggregateRegion(cargo, key) {
-  const ds = regionUfs(key).map(uf => mapCargo === cargo && mapData[uf]).filter(Boolean);
-  if (ds.length < regionUfs(key).length) return null;
+  const ufs = playUfs(key), ds = ufs.map(uf => mapCargo === cargo && mapData[uf]).filter(Boolean);
+  if (!ufs.length || ds.length < ufs.length) return null;
   return aggregateDs(cargo, ds, key);
 }
 /* soma do Brasil a partir dos estados (+ exterior), usada quando o arquivo nacional do TSE atrasa */
@@ -487,13 +519,14 @@ function aggregateDs(cargo, ds, key) {
     (byParty[c.partido] = byParty[c.partido] || []).push(c);
   }
   const hg = ds.map(d => d.hg).sort().pop();
-  return { ele: ds[0].ele, cdabr: key, multi, hg, dg: ds[0].dg, tf: ds.every(d => d.tf === "s") ? "s" : "n", md: "n", s, e, v, region: key,
+  return { ele: ds[0].ele, t: ds[0].t, cdabr: key, multi, hg, dg: ds[0].dg, tf: ds.every(d => d.tf === "s") ? "s" : "n", md: "n", s, e, v, region: key,
     carg: [{ cd: String(cargo), nv: multi ? "0" : "1", agr: Object.entries(byParty).map(([sg, cand]) => ({ tp: "i", par: [{ sg, cand }] })) }] };
 }
 async function regionData() {
-  if (mapCargo !== state.cargo || regionUfs(state.uf).some(uf => !mapData[uf])) await loadStates(true);
+  if (!playUfs(state.uf).length) throw new Error("Nenhum estado desta região tem 2º turno para Governador.");
+  if (mapCargo !== state.cargo || mapTurno !== state.turno || playUfs(state.uf).some(uf => !mapData[uf])) await loadStates(true);
   const d = aggregateRegion(state.cargo, state.uf);
-  if (!d) throw new Error("Carregando os estados da região…");
+  if (!d) throw new Error(state.turno === 2 ? waitMsg() : "Carregando os estados da região…");
   return d;
 }
 
@@ -502,20 +535,27 @@ async function load() {
   if (loading) return;
   loading = true;
   try {
+    const turno = state.turno, key = `${turno}-${state.cargo}-${state.uf}`;
     if (state.cargo === 1) {
       if (state.uf !== "br") { try { natList = candidatos(await getJSON(fileFor(1, "br"))); natList.forEach(colorVar); } catch {} }
     }
-    let d = isRegion(state.uf) ? await regionData() : await getJSON(fileFor(state.cargo, state.uf));
+    // no 2º turno, estados sem 2º turno para Governador mostram o resultado do 1º turno
+    const t1Only = !isRegion(state.uf) && !inPlay(state.uf);
+    let d = isRegion(state.uf) ? await regionData() : await getJSON(fileFor(state.cargo, state.uf, t1Only ? 1 : turno));
+    if (key !== `${state.turno}-${state.cargo}-${state.uf}`) return;   // a seleção mudou durante o download
     let lagNote = "";
-    if (state.cargo === 1 && state.uf === "br" && mapCargo === 1) {
+    if (state.cargo === 1 && state.uf === "br" && mapCargo === 1 && mapTurno === turno) {
       const agg = nationalFromStates(mapData, zzData);
-      if (agg && stamp(agg) > stamp(d)) { lagNote = `O arquivo nacional do TSE está parado desde as ${d.hg.slice(0, 5)}. Mostrando o total do Brasil somado a partir dos 27 estados e do exterior, que estão mais atualizados.`; d = agg; }
+      if (agg && d.tf !== "s" && stamp(agg) > stamp(d)) { lagNote = `O arquivo nacional do TSE está parado desde as ${d.hg.slice(0, 5)}. Mostrando o total do Brasil somado a partir dos 27 estados e do exterior, que estão mais atualizados.`; d = agg; }
     }
+    if (t1Only) lagNote = `Em ${UFNAME[state.uf]} não há 2º turno para Governador: a eleição foi decidida no 1º turno, em 4 de outubro. Mostrando o resultado do 1º turno.`;
+    else if (waiting(d)) lagNote = waitMsg();
     const list = candidatos(d);
     list.forEach(colorVar);
     if (state.cargo === 1 && state.uf === "br") natList = list;
     const prevD = last && last.cdabr === d.cdabr && last.ele === d.ele ? last : null;
     last = d;
+    state.dt = isT2d(d) ? 2 : 1;
     renderKPIs(d);
     await Promise.race([syncHist(), new Promise(r => setTimeout(r, 2000))]);
     if (d.multi) renderRegionRaces(d); else renderResults(d, list);
@@ -527,14 +567,16 @@ async function load() {
     $("err").classList.toggle("info", !!lagNote);
     if (lagNote) $("err").textContent = lagNote;
     const fin = d.tf === "s";
-    $("live").classList.toggle("off", fin);
-    $("liveTxt").textContent = fin ? "FINAL" : "AO VIVO";
+    $("live").classList.toggle("off", fin || waiting(d));
+    $("liveTxt").textContent = fin ? "FINAL" : waiting(d) ? "ÀS 17H" : "AO VIVO";
     if (!state.focus) document.title = d.multi ? `${CARGO[state.cargo]} · ${place()} · Central das Eleições 2026` : `${list[0] && +list[0].vap ? `${title(list[0].nmu)} ${list[0].pvap}% · ` : ""}Central das Eleições 2026`;
     $("qlist").innerHTML = UFS.map(([, n]) => `<option value="${n}">`).join("") + list.map(c => `<option value="${esc(title(c.nmu))}">`).join("");
   } catch (e) {
-    $("err").textContent = e.message + " Tentando de novo automaticamente.";
+    const wait = e.message === waitMsg();
+    $("err").textContent = wait ? e.message : e.message + " Tentando de novo automaticamente.";
+    $("err").classList.toggle("info", wait);
     $("err").style.display = "block";
-    if (!last) $("cands").innerHTML = `<p style="color:var(--muted)">Sem dados ainda.</p>`;
+    if (!last) $("cands").innerHTML = `<p style="color:var(--muted)">${wait ? "Os candidatos e os números do 2º turno aparecem aqui assim que o TSE publicar." : "Sem dados ainda."}</p>`;
   } finally { loading = false; }
   loadStates().catch(() => {});
 }
@@ -547,20 +589,35 @@ function tick() {
   $("ring").style.strokeDashoffset = (56.55 * (1 - countdown / REFRESH)).toFixed(2);
 }
 
-function go(cargo, uf) {
+/* hash da URL: #t2/1/br (2º turno) e #t1/5/sp (1º turno); links antigos sem prefixo (#1/br) continuam valendo */
+const hashFor = sq => `#t${state.turno}/${state.cargo}/${state.uf}${sq ? "/" + sq : ""}`;
+const defaultUf = (cargo, turno) => cargo === 1 ? "br" : turno === 2 && cargo === 3 ? T2_KEY : "sp";
+
+function go(cargo, uf, turno = state.turno) {
   state.focus = null; document.body.classList.remove("focus");
-  if (cargo !== state.cargo) { colorOf = {}; natList = null; ufProj = {}; }
+  if (cargo === 5 && turno === 2) turno = 1;   // Senado não tem 2º turno
+  if (cargo !== state.cargo || turno !== state.turno) { colorOf = {}; natList = null; ufProj = {}; }
+  const turnChanged = turno !== state.turno;
+  if (turnChanged) { mapData = {}; mapCargo = null; mapTurno = null; zzData = null; }
   pj.res = null; $("proj").hidden = true;
-  state.cargo = cargo;
-  state.uf = cargo !== 1 && uf === "br" ? "sp" : uf;
+  state.cargo = cargo; state.turno = turno; state.dt = turno;
+  if (uf === T2_KEY && !(turno === 2 && cargo === 3)) uf = "br";
+  state.uf = cargo !== 1 && uf === "br" ? defaultUf(cargo, turno) : uf;
+  if (isRegion(state.uf) && !playUfs(state.uf).length) state.uf = defaultUf(cargo, turno);
   state.showAll = false; prevVotes = {}; last = null;
+  document.body.classList.toggle("t2", turno === 2);
   $("cargo").value = cargo;
-  const sel = $("uf");
+  $("cargo").querySelector('option[value="5"]').textContent = turno === 2 ? "Senador (1º turno)" : "Senador";
+  $("turnoSeg").querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", +b.dataset.t === turno));
+  const sel = $("uf"), t2gov = turno === 2 && cargo === 3;
+  const opt = ([v, n]) => `<option value="${v}">${n}</option>`;
   sel.innerHTML = (cargo === 1 ? `<option value="br">Todos os estados</option>` : "") +
-    `<optgroup label="Regiões">${Object.entries(REGKEY).map(([v, n]) => `<option value="${v}">${n}</option>`).join("")}</optgroup>` +
-    `<optgroup label="Estados">${UFS.map(([v, n]) => `<option value="${v}">${n}</option>`).join("")}</optgroup>`;
+    (t2gov ? `<option value="${T2_KEY}">Todos os estados com 2º turno</option>` : "") +
+    `<optgroup label="Regiões">${Object.entries(REGKEY).filter(([v]) => playUfs(v).length).map(opt).join("")}</optgroup>` +
+    (t2gov ? `<optgroup label="Com 2º turno">${UFS.filter(([v]) => T2_GOV.includes(v)).map(opt).join("")}</optgroup><optgroup label="Decididos no 1º turno">${UFS.filter(([v]) => !T2_GOV.includes(v)).map(opt).join("")}</optgroup>`
+      : `<optgroup label="Estados">${UFS.map(opt).join("")}</optgroup>`);
   sel.value = state.uf;
-  history.replaceState(null, "", `#${cargo}/${state.uf}`);
+  history.replaceState(null, "", hashFor());
   if (isRegion(state.uf)) zoomToRegion(state.uf);
   else if (state.zoom !== 1 && state.wasRegion) { state.zoom = 1; state.center = null; applyZoom(); }
   state.wasRegion = isRegion(state.uf);
@@ -568,13 +625,26 @@ function go(cargo, uf) {
   renderFeed(false);
   paintStates();
   countdown = REFRESH; load();
+  if (turnChanged && typeof renderAnalyst === "function") renderAnalyst();
 }
 
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 1800); }
 
 /* ================= eventos ================= */
-$("cargo").onchange = e => go(+e.target.value, state.uf);
+$("cargo").onchange = e => {
+  const c = +e.target.value;
+  if (c === 5 && state.turno === 2) toast("O Senado não tem 2º turno: mostrando o 1º turno");
+  go(c, state.uf);
+};
 $("uf").onchange = e => go(state.cargo, e.target.value);
+$("turnoSeg").onclick = e => {
+  const b = e.target.closest("button"); if (!b || +b.dataset.t === state.turno) return;
+  const t = +b.dataset.t;
+  if (t === 2 && state.cargo === 5) toast("O Senado não tem 2º turno: mostrando Presidente");
+  go(t === 2 && state.cargo === 5 ? 1 : state.cargo, state.uf, t);
+  if (typeof sm !== "undefined") sm.view = t === 2 ? "t2" : "t1";   // o resumo do topo acompanha o turno escolhido
+  if (typeof renderSummary === "function") renderSummary();
+};
 $("auto").onclick = () => {
   state.auto = !state.auto;
   $("auto").setAttribute("aria-pressed", state.auto);
@@ -637,7 +707,7 @@ map.addEventListener("click", e => {
   if (drag && drag.moved) return;
   const t = e.target.closest("[data-uf]"); if (!t) return;
   const uf = t.dataset.uf;
-  go(state.cargo, state.uf === uf && state.cargo === 1 ? "br" : uf);
+  go(state.cargo, state.uf === uf ? (state.cargo === 1 ? "br" : state.turno === 2 && state.cargo === 3 ? T2_KEY : uf) : uf);
 });
 map.addEventListener("pointermove", e => {
   if (e.pointerType !== "mouse") return;
@@ -672,7 +742,15 @@ $("theme").onclick = () => {
 document.addEventListener("visibilitychange", () => { if (!document.hidden && state.auto) { countdown = REFRESH; load(); } });
 
 buildMap();
-const [hc, hu, hs] = location.hash.replace("#", "").split("/");
-window.INIT_FOCUS = hs;
-go([1, 3, 5].includes(+hc) ? +hc : 1, hu && (hu === "br" || UFNAME[hu] || REGKEY[hu]) ? hu : "br");
+{
+  const parts = location.hash.replace("#", "").split("/");
+  const ht = /^t[12]$/.test(parts[0]) ? +parts.shift()[1] : null;
+  const [hc, hu, hs] = parts;
+  window.INIT_FOCUS = hs;
+  const cargo = [1, 3, 5].includes(+hc) ? +hc : 1;
+  const uf = hu && (hu === "br" || hu === T2_KEY || UFNAME[hu] || REGKEY[hu]) ? hu : "br";
+  // sem turno no link: 2º turno quando existe (Presidente; Governador nos 6 estados), senão 1º turno
+  const turno = ht || (cargo === 1 || (cargo === 3 && (uf === T2_KEY || T2_GOV.includes(uf) || (isRegion(uf) && regionUfs(uf).some(u => T2_GOV.includes(u))))) ? 2 : 1);
+  go(cargo, uf, turno);
+}
 setInterval(tick, 1000);

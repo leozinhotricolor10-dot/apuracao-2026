@@ -76,7 +76,8 @@ const waitMsg = () => brDate() <= T2_DAY && brNow() < POLLS_CLOSE
 function candidatos(d) {
   const out = [];
   for (const a of d.carg[0].agr || []) for (const p of a.par || []) for (const x of p.cand || [])
-    out.push({ ...x, partido: p.sg, colig: a.tp === "c" ? a.nm : "", vice: (x.vs || []).find(v => v.tp === "v") });
+    // no 1º turno, o TSE marca os finalistas com e="s" e situação "2º turno": não são eleitos
+    out.push({ ...x, e: /2º turno/i.test(x.st || "") ? "n" : x.e, partido: p.sg, colig: a.tp === "c" ? a.nm : "", vice: (x.vs || []).find(v => v.tp === "v") });
   return out.sort((a, b) => b.vap - a.vap);
 }
 function colorVar(c) {
